@@ -6,7 +6,6 @@ interface LoadingStage {
   id: string
   text: string
   duration: number // seconds to wait before marking as complete
-  icon: string
 }
 
 interface ItineraryGenerationLoaderProps {
@@ -19,44 +18,41 @@ const LOADING_STAGES: LoadingStage[] = [
   {
     id: "scoop",
     text: "Getting the scoop on your travel wishes",
-    duration: 2,
-    icon: "✅"
+    duration: 2
   },
   {
     id: "dna",
     text: "Decoding your travel DNA",
-    duration: 3,
-    icon: "✅"
+    duration: 3
   },
   {
     id: "spots",
     text: "Finding the coolest spots to visit",
-    duration: 4,
-    icon: "✅"
+    duration: 4
   },
   {
     id: "collection",
     text: "Building your once-in-a-lifetime collection",
-    duration: 5,
-    icon: "⏳"
+    duration: 5
   }
 ]
 
-export default function ItineraryGenerationLoader({ 
-  destination, 
-  days, 
-  onComplete 
+export default function ItineraryGenerationLoader({
+  destination,
+  days,
+  onComplete
 }: ItineraryGenerationLoaderProps) {
   const [currentStage, setCurrentStage] = useState(0)
   const [completedStages, setCompletedStages] = useState<Set<string>>(new Set())
-  const [isThinking, setIsThinking] = useState(true)
+  const [isComplete, setIsComplete] = useState(false)
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout
 
     const progressStage = (stageIndex: number) => {
       if (stageIndex >= LOADING_STAGES.length) {
-        setIsThinking(false)
+        setIsComplete(true)
+        onComplete?.()
         return
       }
 
@@ -65,14 +61,11 @@ export default function ItineraryGenerationLoader({
 
       timeoutId = setTimeout(() => {
         setCompletedStages(prev => new Set([...prev, stage.id]))
-        
-        // Move to next stage
-        if (stageIndex < LOADING_STAGES.length - 1) {
+
+        // Move to next stage after a brief pause
+        setTimeout(() => {
           progressStage(stageIndex + 1)
-        } else {
-          // Final stage - keep showing until onComplete is called
-          setIsThinking(false)
-        }
+        }, 500)
       }, stage.duration * 1000)
     }
 
@@ -86,85 +79,71 @@ export default function ItineraryGenerationLoader({
     }
   }, [onComplete])
 
-  // Call onComplete when all stages are done
-  useEffect(() => {
-    if (!isThinking && completedStages.size === LOADING_STAGES.length) {
-      onComplete?.()
-    }
-  }, [isThinking, completedStages.size, onComplete])
-
   return (
-    <div className="w-full max-w-md mx-auto p-6 bg-[color:var(--gumo-surface)] rounded-2xl border border-white/10">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-6">
-        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[color:var(--gumo-yellow)]"></div>
-        <span className="text-white/80 text-sm font-medium">
-          {isThinking ? 'Thinking' : 'Finalizing'}
-        </span>
-        {isThinking && (
-          <div className="flex gap-1">
-            <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0s' }}></div>
-            <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-            <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
-          </div>
-        )}
+    <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm mx-auto">
+      {/* Header with spinning loader */}
+      <div className="flex items-center justify-center mb-6">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-blue-500"></div>
       </div>
 
-      {/* Progress Stages */}
-      <div className="space-y-4">
+      {/* Loading text */}
+      <div className="text-center mb-6">
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">
+          Creating your itinerary
+        </h3>
+        <p className="text-sm text-gray-600">
+          {days} days in {destination}
+        </p>
+      </div>
+
+      {/* Progress stages */}
+      <div className="space-y-3">
         {LOADING_STAGES.map((stage, index) => {
           const isCompleted = completedStages.has(stage.id)
           const isCurrent = currentStage === index && !isCompleted
           const isPending = index > currentStage
 
           return (
-            <div 
+            <div
               key={stage.id}
-              className={`flex items-center gap-3 transition-all duration-500 ${
-                isPending ? 'opacity-40' : 'opacity-100'
-              }`}
+              className="flex items-center gap-3"
             >
-              {/* Status Icon */}
-              <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs transition-all duration-300 ${
-                isCompleted 
-                  ? 'bg-green-500 text-white' 
+              {/* Status indicator */}
+              <div className={`w-4 h-4 rounded-full flex items-center justify-center ${isCompleted
+                  ? 'bg-green-500'
                   : isCurrent
-                  ? 'bg-[color:var(--gumo-yellow)] text-black'
-                  : 'bg-gray-600 text-gray-400'
-              }`}>
-                {isCompleted ? '✓' : isCurrent ? '⏳' : '○'}
+                    ? 'bg-blue-500 animate-pulse'
+                    : 'bg-gray-200'
+                }`}>
+                {isCompleted && (
+                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
               </div>
 
-              {/* Stage Text */}
-              <div className={`flex-1 transition-all duration-300 ${
-                isCompleted ? 'text-green-400' : isCurrent ? 'text-[color:var(--gumo-yellow)]' : 'text-white/60'
-              }`}>
-                <p className="text-sm">
-                  {stage.text}
-                  {stage.id === 'collection' && (
-                    <span className="text-white/60"> for {destination}</span>
-                  )}
-                </p>
-              </div>
-
-              {/* Loading animation for current stage */}
-              {isCurrent && (
-                <div className="flex-shrink-0">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[color:var(--gumo-yellow)]"></div>
-                </div>
-              )}
+              {/* Stage text */}
+              <p className={`text-sm ${isCompleted ? 'text-green-600' : isCurrent ? 'text-blue-600' : 'text-gray-400'
+                }`}>
+                {stage.text}
+              </p>
             </div>
           )
         })}
       </div>
 
-      {/* Footer Message */}
-      <div className="mt-6 pt-4 border-t border-white/10">
-        <p className="text-xs text-white/50 text-center">
-          {isThinking 
-            ? `Creating your perfect ${days}-day ${destination} adventure...`
-            : `Almost ready! Finalizing your ${days}-day itinerary...`
-          }
+      {/* Progress bar */}
+      <div className="mt-6">
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div
+            className="bg-blue-500 h-2 rounded-full transition-all duration-1000 ease-out"
+            style={{
+              width: `${((completedStages.size + (currentStage < LOADING_STAGES.length ? 0.5 : 0)) / LOADING_STAGES.length) * 100}%`
+            }}
+          ></div>
+        </div>
+        <p className="text-xs text-gray-500 text-center mt-2">
+          {Math.round(((completedStages.size + (currentStage < LOADING_STAGES.length ? 0.5 : 0)) / LOADING_STAGES.length) * 100)}% complete
         </p>
       </div>
     </div>
