@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Globe2, Smile, User2 } from "lucide-react"
+import { Globe2, House, Smile, User2 } from "lucide-react"
 
 function NavBtn({
   active,
@@ -35,15 +35,30 @@ export function BottomNav() {
   const pathname = usePathname()
   return (
     <nav aria-label="Primary" className="gumo-card flex items-center gap-3 p-2">
+      <NavBtn
+        href="/home"
+        active={pathname?.startsWith("/home")}
+        label="Home"
+      >
+        <House className="size-6" aria-hidden />
+      </NavBtn>
       <NavBtn href="/" active={pathname === "/"} label="Home">
         <Smile className="size-6" aria-hidden />
       </NavBtn>
-      <NavBtn href="/explore" active={pathname?.startsWith("/explore")} label="Discover">
+      <NavBtn
+        href="/explore"
+        active={pathname?.startsWith("/explore")}
+        label="Discover"
+      >
         <Globe2 className="size-6" aria-hidden />
       </NavBtn>
-      <NavBtn href="/profile" active={pathname?.startsWith("/profile")} label="Profile">
+      <NavBtn
+        href="/profile"
+        active={pathname?.startsWith("/profile")}
+        label="Profile"
+      >
         <User2 className="size-6" aria-hidden />
       </NavBtn>
     </nav>
-  )
+  );
 }

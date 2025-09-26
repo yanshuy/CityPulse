@@ -1,6 +1,5 @@
 import { TopBar } from "@/components/gumo/top-bar"
 import { SuggestionCard } from "@/components/gumo/suggestion-card"
-import { BottomNav } from "@/components/gumo/bottom-nav"
 import { ChatInput } from "@/components/gumo/chat-input"
 
 export default function Page() {
@@ -47,12 +46,6 @@ export default function Page() {
       <div className="relative">
         <div className="gumo-ambient" />
         <ChatInput />
-      </div>
-
-      <div className="fixed inset-x-0 bottom-3">
-        <div className="mx-auto max-w-md px-4">
-          <BottomNav />
-        </div>
       </div>
     </main>
   )

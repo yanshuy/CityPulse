@@ -123,12 +123,6 @@ export default function ExplorePage({ searchParams }: { searchParams?: { prompt?
           </button>
         </div>
       </div>
-
-      <div className="fixed inset-x-0 bottom-3">
-        <div className="mx-auto max-w-md px-4">
-          <BottomNav />
-        </div>
-      </div>
     </main>
   )
 }
