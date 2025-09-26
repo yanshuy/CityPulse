@@ -1,47 +1,10 @@
 "use client"
 
-type EventsData = {
-    heading: string
-    location: string
-    timeframe: string
-    events: Array<{
-        title: string
-        date: string
-        time: string
-        venue: string
-        category: 'music' | 'arts' | 'food' | 'sports' | 'tech' | 'cultural' | 'entertainment' | 'business'
-        price: string
-        description: string
-        image?: string
-    }>
-    totalFound: number
-    suggestion: string
-}
+import { EventsListProps } from "@/lib/types/component-schemas"
 
-type EventItem = { id: string; title: string; when: string; where: string }
-
-const MOCK_EVENTS: EventItem[] = [
-    { id: 'e1', title: 'Sunset Music Fest', when: 'This weekend', where: 'Central Park' },
-    { id: 'e2', title: 'Street Food Carnival', when: 'Tonight', where: 'Riverside' },
-    { id: 'e3', title: 'Art Walk', when: 'Tomorrow', where: 'Old Town' },
-]
-
-interface EventsListProps {
-    data?: EventsData
-    heading?: string // Legacy prop for backward compatibility
-}
-
-export default function EventsList({ data, heading }: EventsListProps) {
-    const displayHeading = data?.heading || heading || 'Local events'
-    const eventsToShow = data?.events || MOCK_EVENTS.map(event => ({
-        title: event.title,
-        date: event.when,
-        time: '',
-        venue: event.where,
-        category: 'entertainment' as const,
-        price: 'Free',
-        description: ''
-    }))
+export default function EventsList({ data }: EventsListProps) {
+    const displayHeading = data.heading
+    const eventsToShow = data.events
 
     const getCategoryIcon = (category: string) => {
         switch (category) {
@@ -60,9 +23,7 @@ export default function EventsList({ data, heading }: EventsListProps) {
         <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-[color:var(--gumo-surface)] p-4">
             <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold">{displayHeading}</h3>
-                {data?.totalFound && (
-                    <span className="text-xs text-white/60">{data.totalFound} total</span>
-                )}
+                <span className="text-xs text-white/60">{data.totalFound} total</span>
             </div>
 
             <ul className="mt-3 space-y-3">
@@ -87,7 +48,7 @@ export default function EventsList({ data, heading }: EventsListProps) {
                 ))}
             </ul>
 
-            {data?.suggestion && (
+            {data.suggestion && (
                 <div className="mt-3 p-3 rounded-lg bg-white/5">
                     <p className="text-xs text-white/70">{data.suggestion}</p>
                 </div>

@@ -1,43 +1,16 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { TrafficInsightsProps } from "@/lib/types/component-schemas"
 
-type TrafficData = {
-    route: string
-    fromLocation: string
-    toLocation: string
-    currentStatus: 'light' | 'moderate' | 'heavy' | 'severe'
-    estimatedTime: string
-    estimatedDelay: string
-    alternativeRoutes: Array<{
-        name: string
-        estimatedTime: string
-        description: string
-    }>
-    incidents: Array<{
-        type: string
-        location: string
-        impact: string
-        severity: 'low' | 'medium' | 'high'
-    }>
-    suggestion: string
-    lastUpdated: string
-}
-
-interface TrafficInsightsProps {
-    data?: TrafficData
-    query?: string // Legacy prop for backward compatibility
-}
-
-export default function TrafficInsights({ data, query }: TrafficInsightsProps) {
+export default function TrafficInsights({ data }: TrafficInsightsProps) {
     const router = useRouter()
-    const prompt = `traffic conditions ${query ?? "near me"}`
 
-    // Use AI data if available, otherwise show fallback
-    const trafficStatus = data?.currentStatus || "moderate"
-    const incidentCount = data?.incidents?.length || 2
-    const estimatedDelay = data?.estimatedDelay || "+8 min"
-    const route = data?.route || "Live traffic snapshot"
+    // Use AI data directly
+    const trafficStatus = data.currentStatus
+    const incidentCount = data.incidents.length
+    const estimatedDelay = data.estimatedDelay
+    const route = data.route
 
     const getStatusColor = (status: string) => {
         switch (status) {
@@ -88,7 +61,7 @@ export default function TrafficInsights({ data, query }: TrafficInsightsProps) {
                 <div className="mt-4 flex items-center justify-end">
                     <button
                         className="rounded-xl bg-[color:var(--gumo-yellow)] px-4 py-2 text-sm font-medium text-black"
-                        onClick={() => router.push(`/explore?prompt=${encodeURIComponent(prompt)}`)}
+                        onClick={() => router.push('/explore')}
                     >
                         View Details
                     </button>

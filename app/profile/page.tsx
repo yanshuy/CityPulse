@@ -107,7 +107,7 @@ export default function ProfilePage() {
       <div className="px-4 mt-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-[color:var(--gumo-text)]">Your Itineraries</h2>
-          <button 
+          <button
             onClick={() => window.location.href = '/'}
             className="p-2 rounded-lg bg-[color:var(--gumo-yellow)] text-black hover:bg-[color:var(--gumo-yellow)]/90 transition-colors"
             title="Create new itinerary"
@@ -119,7 +119,7 @@ export default function ProfilePage() {
         {error && (
           <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
             <p className="text-red-400 text-sm">{error}</p>
-            <button 
+            <button
               onClick={loadItineraries}
               className="mt-2 text-xs text-red-300 hover:text-red-200"
             >
@@ -137,7 +137,7 @@ export default function ProfilePage() {
             <p className="text-sm text-[color:var(--gumo-muted)] mb-6">
               Start a conversation to create your first travel itinerary
             </p>
-            <button 
+            <button
               onClick={() => window.location.href = '/'}
               className="inline-flex items-center gap-2 px-4 py-2 bg-[color:var(--gumo-yellow)] text-black rounded-lg font-medium hover:bg-[color:var(--gumo-yellow)]/90 transition-colors"
             >
@@ -156,7 +156,7 @@ export default function ProfilePage() {
                   href={`/itinerary/${itinerary.id}`}
                   imageSrc={itinerary.imageSrc}
                 />
-                
+
                 {/* Itinerary metadata */}
                 <div className="mt-3 flex items-center justify-between text-xs text-[color:var(--gumo-muted)]">
                   <div className="flex items-center gap-4">
@@ -169,7 +169,7 @@ export default function ProfilePage() {
                       <span>{getTotalDays(itinerary.destinations)} days</span>
                     </div>
                   </div>
-                  
+
                   <button
                     onClick={(e) => {
                       e.preventDefault()
