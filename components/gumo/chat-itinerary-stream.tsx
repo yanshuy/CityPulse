@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import ItinerarySummaryCardV2 from "./itinerary-summary-card-v2"
+import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-itinerary-summary-card"
 
 type Summary = {
   title: string
@@ -29,13 +29,22 @@ export default function ChatItineraryStream() {
   return (
     <div className="mt-4 space-y-4">
       {summaries.map((s, idx) => (
-        <ItinerarySummaryCardV2
+        <SaveableItinerarySummaryCard
           key={idx}
           title={s.title}
           blurb={s.blurb}
           bullets={s.bullets}
           href={s.href}
           imageSrc={s.imageSrc}
+          chatData={{
+            title: s.title,
+            description: s.blurb,
+            highlights: s.bullets,
+            imageSrc: s.imageSrc,
+            href: s.href
+          }}
+          onSaved={(id) => console.log('Itinerary saved from stream:', id)}
+          onError={(error) => console.error('Save failed from stream:', error)}
         />
       ))}
     </div>

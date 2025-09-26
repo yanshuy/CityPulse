@@ -3,6 +3,7 @@ import { useMemo, useState } from "react"
 import type React from "react"
 
 import { useRouter } from "next/navigation"
+import { SaveItineraryButton } from "@/components/itinerary/save-itinerary-button"
 
 type PlannerData = {
   destination: string
@@ -215,13 +216,36 @@ export default function PlannerForm({ data, destination = "", days = 3, query = 
           </button>
         </div>
 
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button type="button" className={`${outline} rounded-xl px-4 py-2 text-sm`} onClick={() => history.back()}>
-            Cancel
-          </button>
-          <button type="button" className={`${primary} rounded-xl px-4 py-2 text-sm`} onClick={onNext}>
-            Next
-          </button>
+        <div className="mt-4 flex items-center justify-between gap-2">
+          {/* Left side: Save Itinerary Button */}
+          <SaveItineraryButton
+            chatData={{
+              title: data?.suggestedTitle || `${finalDays}-day ${finalDestination} Trip`,
+              description: data?.description || `Explore ${finalDestination} in ${finalDays} days`,
+              destination: finalDestination,
+              days: finalDays,
+              destinations: [{ city: finalDestination, days: finalDays }],
+              highlights: data?.highlights || [],
+              bestTimeToVisit: data?.bestTimeToVisit,
+              estimatedBudget: data?.estimatedBudget,
+              suggestedActivities: data?.suggestedActivities,
+              chatData: data
+            }}
+            variant="outline"
+            size="sm"
+            onSaved={(id) => console.log('Itinerary saved:', id)}
+            onError={(error) => console.error('Save failed:', error)}
+          />
+          
+          {/* Right side: Action buttons */}
+          <div className="flex gap-2">
+            <button type="button" className={`${outline} rounded-xl px-4 py-2 text-sm`} onClick={() => history.back()}>
+              Cancel
+            </button>
+            <button type="button" className={`${primary} rounded-xl px-4 py-2 text-sm`} onClick={onNext}>
+              Next
+            </button>
+          </div>
         </div>
       </SectionCard>
 

@@ -12,7 +12,7 @@ import ExploreGrid from "@/components/gumo/explore-grid"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { chatHistoryDB, generateSessionId, generateSessionTitle, type ChatSession } from "@/lib/chat-history"
-import ItinerarySummaryCardV2 from "@/components/gumo/itinerary-summary-card-v2"
+import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-itinerary-summary-card"
 
 export default function Page() {
   const [isProcessing, setIsProcessing] = useState(false)
@@ -441,12 +441,15 @@ export default function Page() {
                 )}
                 {m.type === "summary" && (
                   <div className="mb-6">
-                    <ItinerarySummaryCardV2
+                    <SaveableItinerarySummaryCard
                       title={m.payload.title}
                       blurb={m.payload.blurb}
                       bullets={m.payload.bullets}
                       href={m.payload.href}
                       imageSrc={m.payload.imageSrc}
+                      chatData={m.payload}
+                      onSaved={(id) => console.log('Itinerary saved from summary:', id)}
+                      onError={(error) => console.error('Save failed from summary:', error)}
                     />
                   </div>
                 )}

@@ -83,12 +83,12 @@ export default function ItineraryPage({ searchParams }: { searchParams: { plan?:
           <button className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1">
             Map View
           </button>
-          <button className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1">
+          {/* <button className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1">
             Hotels
           </button>
           <button className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1">
             <Download className="size-3" /> Download
-          </button>
+          </button> */}
         </div>
       </header>
       <div className="space-y-1">
@@ -183,10 +183,7 @@ export default function ItineraryPage({ searchParams }: { searchParams: { plan?:
         </div>
       </div>
 
-      <div className="sticky bottom-4 mt-8 grid items-center gap-2 p-4 rounded-2xl bg-card/80 backdrop-blur border border-[color:var(--border)]">
-        <button className="flex-1 rounded-full bg-[color:var(--gumo-yellow)] px-4 py-2.5 text-sm font-medium text-black flex items-center justify-center gap-2">
-          Open Day {day} in Google Maps
-        </button>
+      <div className="sticky bottom-4 mt-8 pb-20 grid items-center gap-2 p-4 rounded-2xl bg-card/80 backdrop-blur border border-[color:var(--border)]">
         <div className="flex gap-2">
           <button className="rounded-full bg-green-500 px-4 py-2.5 text-white text-sm font-medium flex items-center gap-2">
             <MessageCircle className="size-4" />

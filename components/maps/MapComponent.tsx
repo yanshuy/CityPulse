@@ -366,6 +366,7 @@ export const MapComponent: React.FC = () => {
 
   // Routing and directions state
   const [directionsService, setDirectionsService] = useState<google.maps.DirectionsService | null>(null)
+  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null)
   const [directionsRenderers, setDirectionsRenderers] = useState<google.maps.DirectionsRenderer[]>([])
   const [routeOptions, setRouteOptions] = useState<google.maps.DirectionsRoute[]>([])
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0)
@@ -375,6 +376,8 @@ export const MapComponent: React.FC = () => {
   const [trafficLayer, setTrafficLayer] = useState<google.maps.TrafficLayer | null>(null)
   const [originalDirectionsResult, setOriginalDirectionsResult] = useState<google.maps.DirectionsResult | null>(null)
   const [routeError, setRouteError] = useState<string | null>(null)
+  const [showUserLocationInfo, setShowUserLocationInfo] = useState(false)
+  const [userLocationAddress, setUserLocationAddress] = useState<string | null>(null)
 
   const mapRef = useRef<google.maps.Map | null>(null)
   const map = useMap()
@@ -467,12 +470,16 @@ export const MapComponent: React.FC = () => {
     }
   }, [])
 
-  // Initialize DirectionsService only
+  // Initialize DirectionsService and Geocoder
   useEffect(() => {
     if (map && apiIsLoaded && !directionsService) {
       // Initialize DirectionsService
       const service = new google.maps.DirectionsService()
       setDirectionsService(service)
+      
+      // Initialize Geocoder
+      const geocoderService = new google.maps.Geocoder()
+      setGeocoder(geocoderService)
     }
   }, [map, apiIsLoaded, directionsService])
 
@@ -486,6 +493,45 @@ export const MapComponent: React.FC = () => {
   const handleLocationUpdate = useCallback((location: { lat: number; lng: number }, address: string) => {
     setUserLocation(location)
   }, [])
+
+  // Handle user location marker click
+  const handleUserLocationClick = useCallback(async () => {
+    if (!geocoder || !userLocation) return
+
+    // For mobile, open drawer and set special state for user location
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setDrawerOpen(true)
+      setSelectedLocation({
+        id: 'user-location',
+        name: 'Your Current Location',
+        latitude: userLocation.lat,
+        longitude: userLocation.lng,
+        type: 'other',
+        category: 'current-location'
+      })
+    } else {
+      // For desktop, show info window
+      setShowUserLocationInfo(true)
+    }
+    
+    // If we don't have the address yet, reverse geocode it
+    if (!userLocationAddress) {
+      try {
+        const { results } = await geocoder.geocode({
+          location: userLocation
+        })
+        
+        if (results && results.length > 0) {
+          setUserLocationAddress(results[0].formatted_address)
+        } else {
+          setUserLocationAddress("Address not available")
+        }
+      } catch (error) {
+        console.error('Error reverse geocoding user location:', error)
+        setUserLocationAddress("Unable to get address")
+      }
+    }
+  }, [geocoder, userLocation, userLocationAddress])
 
   // Autocomplete functionality - keeping compatible approach while new API stabilizes
   const fetchAutocompleteSuggestions = useCallback(async (input: string) => {
@@ -1090,9 +1136,10 @@ export const MapComponent: React.FC = () => {
         {userLocation && (
           <AdvancedMarker
             position={userLocation}
-            clickable={false}
+            clickable={true}
+            onClick={handleUserLocationClick}
           >
-            <div className="flex flex-col items-center cursor-default transform transition-all duration-200">
+            <div className="flex flex-col items-center cursor-pointer transform transition-all duration-200 hover:scale-110">
               <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 border-white bg-[color:var(--gumo-yellow)]">
                 <MapPin className="w-4 h-4 text-black" />
               </div>
@@ -1140,6 +1187,62 @@ export const MapComponent: React.FC = () => {
               onDirectionsClick={calculateRoutes}
               showDirections={true}
             />
+          </InfoWindow>
+        )}
+
+        {/* User location info window */}
+        {showUserLocationInfo && userLocation && typeof window !== 'undefined' && window.innerWidth >= 768 && (
+          <InfoWindow
+            position={userLocation}
+            onCloseClick={() => setShowUserLocationInfo(false)}
+          >
+            <div className="p-4 min-w-[280px] max-w-sm bg-[color:var(--gumo-surface)] rounded-xl border border-white/20">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-[color:var(--gumo-yellow)] flex items-center justify-center">
+                  <Navigation className="w-4 h-4 text-black" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-[color:var(--gumo-text)] text-sm">Your Current Location</h3>
+                  <p className="text-xs text-[color:var(--gumo-muted)] mt-1">GPS Location</p>
+                </div>
+              </div>
+
+              {userLocationAddress && (
+                <p className="text-sm text-[color:var(--gumo-text)]/80 mb-3">{userLocationAddress}</p>
+              )}
+
+              <div className="flex items-center gap-4 mb-3 text-xs text-[color:var(--gumo-muted)]">
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  <span>Lat: {userLocation.lat.toFixed(6)}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  <span>Lng: {userLocation.lng.toFixed(6)}</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    if (map) {
+                      map.panTo(userLocation)
+                      map.setZoom(16)
+                    }
+                  }}
+                  className="flex-1 py-2 px-3 rounded-lg bg-[color:var(--gumo-yellow)] text-black text-xs font-medium hover:bg-[color:var(--gumo-yellow)]/90 transition-colors flex items-center justify-center gap-1"
+                >
+                  <Navigation className="w-3 h-3" />
+                  Center Map
+                </button>
+                <button 
+                  onClick={() => setShowUserLocationInfo(false)}
+                  className="flex-1 py-2 px-3 rounded-lg border border-white/20 text-[color:var(--gumo-text)] text-xs font-medium hover:bg-white/5 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </InfoWindow>
         )}
       </Map>
@@ -1212,7 +1315,7 @@ export const MapComponent: React.FC = () => {
       </div>
 
       {/* My Location Button */}
-      <div className="absolute bottom-32 right-4 z-10 mb-16">
+      <div className="absolute bottom-6 right-4 z-10 mb-16">
         <button 
           onClick={focusOnMyLocation}
           className="w-12 h-12 bg-[color:var(--gumo-surface)]/90 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg border border-white/10 hover:bg-[color:var(--gumo-surface)] transition-colors"
@@ -1274,14 +1377,68 @@ export const MapComponent: React.FC = () => {
       >
         {selectedLocation ? (
           <div className="space-y-4 pt-4">
-            <MarkerInfoWindow 
-              location={selectedLocation} 
-              onDirectionsClick={calculateRoutes}
-              showDirections={true}
-            />
+            {/* Special handling for user location */}
+            {selectedLocation.id === 'user-location' ? (
+              <div className="p-4 min-w-[280px] max-w-sm bg-[color:var(--gumo-surface)] rounded-xl border border-white/20">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-[color:var(--gumo-yellow)] flex items-center justify-center">
+                    <Navigation className="w-4 h-4 text-black" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-[color:var(--gumo-text)] text-sm">Your Current Location</h3>
+                    <p className="text-xs text-[color:var(--gumo-muted)] mt-1">GPS Location</p>
+                  </div>
+                </div>
+
+                {userLocationAddress && (
+                  <p className="text-sm text-[color:var(--gumo-text)]/80 mb-3">{userLocationAddress}</p>
+                )}
+
+                <div className="flex items-center gap-4 mb-3 text-xs text-[color:var(--gumo-muted)]">
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    <span>Lat: {userLocation?.lat.toFixed(6)}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    <span>Lng: {userLocation?.lng.toFixed(6)}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      if (map && userLocation) {
+                        map.panTo(userLocation)
+                        map.setZoom(16)
+                      }
+                    }}
+                    className="flex-1 py-2 px-3 rounded-lg bg-[color:var(--gumo-yellow)] text-black text-xs font-medium hover:bg-[color:var(--gumo-yellow)]/90 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Navigation className="w-3 h-3" />
+                    Center Map
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setDrawerOpen(false)
+                      setSelectedLocation(null)
+                    }}
+                    className="flex-1 py-2 px-3 rounded-lg border border-white/20 text-[color:var(--gumo-text)] text-xs font-medium hover:bg-white/5 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <MarkerInfoWindow 
+                location={selectedLocation} 
+                onDirectionsClick={calculateRoutes}
+                showDirections={true}
+              />
+            )}
             
-            {/* Route Options Display with Travel Modes */}
-            {(showRoutes && routeOptions.length > 0) || routeError ? (
+            {/* Route Options Display with Travel Modes - only for regular locations */}
+            {selectedLocation.id !== 'user-location' && ((showRoutes && routeOptions.length > 0) || routeError) ? (
               <div className="space-y-3">
                 {/* Travel Mode Selector */}
                 <div className="flex items-center justify-between">
