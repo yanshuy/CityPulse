@@ -44,7 +44,7 @@ export default function Page() {
       })
     } else {
       // Fallback to the original behavior
-      router.push(`/explore?prompt=${encodeURIComponent(query)}`)
+      //router.push(`/explore?prompt=${encodeURIComponent(query)}`)
     }
   }
 
