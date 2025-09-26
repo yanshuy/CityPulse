@@ -5,13 +5,14 @@ import { Paperclip, Phone } from "lucide-react"
 
 interface ChatInputProps {
   onQuerySubmit: (query: string) => void
+  disabled?: boolean
 }
 
-export function ChatInput({ onQuerySubmit }: ChatInputProps) {
+export function ChatInput({ onQuerySubmit, disabled = false }: ChatInputProps) {
   const [value, setValue] = useState("")
 
   function submit() {
-    if (!value.trim()) return
+    if (!value.trim() || disabled) return
     onQuerySubmit(value.trim())
     setValue("") // Clear input after submission
   }
@@ -24,11 +25,12 @@ export function ChatInput({ onQuerySubmit }: ChatInputProps) {
       <div className="rounded-2xl bg-[color:var(--gumo-surface)] gumo-input-outline px-4 py-3 flex items-center justify-between">
         <input
           id="gumo-chat"
-          placeholder="Ask about traffic, events, or local places..."
+          placeholder={disabled ? "Processing..." : "Ask about traffic, events, or local places..."}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
-          className="bg-transparent placeholder:text-white/40 text-[15px] leading-6 text-white/90 outline-none flex-1"
+          disabled={disabled}
+          className="bg-transparent placeholder:text-white/40 text-[15px] leading-6 text-white/90 outline-none flex-1 disabled:opacity-50"
         />
         <div className="ml-3 flex items-center gap-3 text-white/60">
           <button aria-label="Attach" onClick={() => alert("Mock: open file picker")}>
