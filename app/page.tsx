@@ -13,6 +13,7 @@ import ExploreGrid from "@/components/gumo/explore-grid"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { chatHistoryDB, generateSessionId, generateSessionTitle, type ChatSession } from "@/lib/chat-history"
+import ItinerarySummaryCardV2 from "@/components/gumo/itinerary-summary-card-v2"
 
 export default function Page() {
   const [isProcessing, setIsProcessing] = useState(false)
@@ -21,34 +22,48 @@ export default function Page() {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([])
 
   type ChatMessage =
-    | { id: string; role: 'user'; type: 'text'; text: string }
-    | { id: string; role: 'assistant'; type: 'text'; text: string }
-    | { id: string; role: 'assistant'; type: 'planner'; payload: { destination?: string; days?: number; query?: string } }
-    | { id: string; role: 'assistant'; type: 'traffic'; payload: { query?: string } }
-    | { id: string; role: 'assistant'; type: 'events'; payload: { heading?: string } }
-    | { id: string; role: 'assistant'; type: 'food'; payload: { heading?: string } }
-    | { id: string; role: 'assistant'; type: 'explore'; payload: { heading?: string } }
+    | { id: string; role: "user"; type: "text"; text: string }
+    | { id: string; role: "assistant"; type: "text"; text: string }
+    | {
+        id: string
+        role: "assistant"
+        type: "planner"
+        payload: { destination?: string; days?: number; query?: string }
+      }
+    | { id: string; role: "assistant"; type: "traffic"; payload: { query?: string } }
+    | { id: string; role: "assistant"; type: "events"; payload: { heading?: string } }
+    | { id: string; role: "assistant"; type: "food"; payload: { heading?: string } }
+    | { id: string; role: "assistant"; type: "explore"; payload: { heading?: string } }
+    | {
+        id: string
+        role: "assistant"
+        type: "summary"
+        payload: { title: string; blurb: string; bullets: string[]; href: string; imageSrc?: string }
+      }
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const router = useRouter()
 
   // Save current session to IndexedDB
-  const saveCurrentSession = useCallback(async (updatedMessages?: ChatMessage[]) => {
-    if (!currentSessionId) return
+  const saveCurrentSession = useCallback(
+    async (updatedMessages?: ChatMessage[]) => {
+      if (!currentSessionId) return
 
-    const messagesToSave = updatedMessages || messages
-    if (messagesToSave.length === 0) return
+      const messagesToSave = updatedMessages || messages
+      if (messagesToSave.length === 0) return
 
-    const session: ChatSession = {
-      id: currentSessionId,
-      title: generateSessionTitle(messagesToSave),
-      messages: messagesToSave,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    }
+      const session: ChatSession = {
+        id: currentSessionId,
+        title: generateSessionTitle(messagesToSave),
+        messages: messagesToSave,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      }
 
-    await chatHistoryDB.saveSession(session)
-  }, [currentSessionId, messages])
+      await chatHistoryDB.saveSession(session)
+    },
+    [currentSessionId, messages],
+  )
 
   // Load chat sessions on mount
   useEffect(() => {
@@ -57,7 +72,7 @@ export default function Page() {
         const sessions = await chatHistoryDB.getAllSessions()
         setChatSessions(sessions)
       } catch (error) {
-        console.error('Failed to load chat sessions:', error)
+        console.error("Failed to load chat sessions:", error)
       }
     }
 
@@ -82,7 +97,7 @@ export default function Page() {
       const sessions = await chatHistoryDB.getAllSessions()
       setChatSessions(sessions)
     } catch (error) {
-      console.error('Failed to refresh chat sessions:', error)
+      console.error("Failed to refresh chat sessions:", error)
     }
   }, [])
 
@@ -96,8 +111,26 @@ export default function Page() {
         setShowHistory(false)
       }
     } catch (error) {
-      console.error('Failed to load chat session:', error)
+      console.error("Failed to load chat session:", error)
     }
+  }, [])
+
+  useEffect(() => {
+    function onAdd(e: Event) {
+      const ce = e as CustomEvent<{ title: string; blurb: string; bullets: string[]; href: string; imageSrc?: string }>
+      if (!ce.detail) return
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}-s`,
+          role: "assistant",
+          type: "summary",
+          payload: ce.detail,
+        },
+      ])
+    }
+    window.addEventListener("gumo:add-itinerary-summary", onAdd as EventListener)
+    return () => window.removeEventListener("gumo:add-itinerary-summary", onAdd as EventListener)
   }, [])
 
   async function handleQuery(query: string) {
@@ -109,16 +142,13 @@ export default function Page() {
     }
 
     // Immediately show the user's message in the thread
-    setMessages((prev) => [
-      ...prev,
-      { id: `u-${Date.now()}`, role: 'user', type: 'text', text: query },
-    ])
+    setMessages((prev) => [...prev, { id: `u-${Date.now()}`, role: "user", type: "text", text: query }])
 
     try {
-      const response = await fetch('/api/query', {
-        method: 'POST',
+      const response = await fetch("/api/query", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ query }),
       })
@@ -128,26 +158,26 @@ export default function Page() {
       if (result.success && result.data) {
         const { type, destination, days, searchQuery, timeframe } = result.data
 
-        console.log('AI Response:', result.data)
+        console.log("AI Response:", result.data)
 
         // Handle different query types with available components
         switch (type) {
-          case 'itinerary':
+          case "itinerary":
             // Render planner component inline in chat
             setMessages((prev) => [
               ...prev,
               {
                 id: `a-${Date.now()}-t`,
-                role: 'assistant',
-                type: 'text',
-                text: `I can plan a ${days ?? ''}${days ? '-day ' : ''}trip ${destination ? `to ${destination}` : ''}. Adjust details below and continue.`,
+                role: "assistant",
+                type: "text",
+                text: `I can plan a ${days ?? ""}${days ? "-day " : ""}trip ${destination ? `to ${destination}` : ""}. Adjust details below and continue.`,
               },
               {
                 id: `a-${Date.now()}-p`,
-                role: 'assistant',
-                type: 'planner',
+                role: "assistant",
+                type: "planner",
                 payload: {
-                  destination: destination || '',
+                  destination: destination || "",
                   days: days,
                   query,
                 },
@@ -155,40 +185,45 @@ export default function Page() {
             ])
             break
 
-          case 'traffic':
+          case "traffic":
             // Inline traffic insights card
             setMessages((prev) => [
               ...prev,
-              { id: `a-${Date.now()}-t`, role: 'assistant', type: 'text', text: 'Here are traffic insights for you:' },
-              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'traffic', payload: { query: searchQuery || query } },
+              { id: `a-${Date.now()}-t`, role: "assistant", type: "text", text: "Here are traffic insights for you:" },
+              { id: `a-${Date.now()}-x`, role: "assistant", type: "traffic", payload: { query: searchQuery || query } },
             ])
             break
 
-          case 'events':
+          case "events":
             // Inline events list
-            const eventsQuery = timeframe ? `events ${timeframe}` : 'local events'
+            const eventsQuery = timeframe ? `events ${timeframe}` : "local events"
             setMessages((prev) => [
               ...prev,
-              { id: `a-${Date.now()}-t`, role: 'assistant', type: 'text', text: `Here are ${eventsQuery}:` },
-              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'events', payload: { heading: eventsQuery } },
+              { id: `a-${Date.now()}-t`, role: "assistant", type: "text", text: `Here are ${eventsQuery}:` },
+              { id: `a-${Date.now()}-x`, role: "assistant", type: "events", payload: { heading: eventsQuery } },
             ])
             break
 
-          case 'food':
+          case "food":
             // Inline food list
             setMessages((prev) => [
               ...prev,
-              { id: `a-${Date.now()}-t`, role: 'assistant', type: 'text', text: 'Here are some popular places to eat:' },
-              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'food', payload: { heading: 'Popular restaurants' } },
+              {
+                id: `a-${Date.now()}-t`,
+                role: "assistant",
+                type: "text",
+                text: "Here are some popular places to eat:",
+              },
+              { id: `a-${Date.now()}-x`, role: "assistant", type: "food", payload: { heading: "Popular restaurants" } },
             ])
             break
 
-          case 'explore':
+          case "explore":
             // Inline explore grid
             setMessages((prev) => [
               ...prev,
-              { id: `a-${Date.now()}-t`, role: 'assistant', type: 'text', text: 'Exploring interesting spots…' },
-              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'explore', payload: { heading: 'Explore ideas' } },
+              { id: `a-${Date.now()}-t`, role: "assistant", type: "text", text: "Exploring interesting spots…" },
+              { id: `a-${Date.now()}-x`, role: "assistant", type: "explore", payload: { heading: "Explore ideas" } },
             ])
             break
 
@@ -196,24 +231,33 @@ export default function Page() {
             // Fallback for general queries – keep inline for now
             setMessages((prev) => [
               ...prev,
-              { id: `a-${Date.now()}`, role: 'assistant', type: 'text', text: 'Got it — here are some ideas you can explore.' },
-              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'explore', payload: { heading: 'Suggestions' } },
+              {
+                id: `a-${Date.now()}`,
+                role: "assistant",
+                type: "text",
+                text: "Got it — here are some ideas you can explore.",
+              },
+              { id: `a-${Date.now()}-x`, role: "assistant", type: "explore", payload: { heading: "Suggestions" } },
             ])
         }
       } else {
         // Fallback if AI processing fails
         setMessages((prev) => [
           ...prev,
-          { id: `a-${Date.now()}`, role: 'assistant', type: 'text', text: 'I had trouble understanding that. Try rephrasing your request.' },
+          {
+            id: `a-${Date.now()}`,
+            role: "assistant",
+            type: "text",
+            text: "I had trouble understanding that. Try rephrasing your request.",
+          },
         ])
       }
-
     } catch (error) {
-      console.error('Error processing query:', error)
+      console.error("Error processing query:", error)
       // Fallback to original behavior
       setMessages((prev) => [
         ...prev,
-        { id: `a-${Date.now()}`, role: 'assistant', type: 'text', text: 'Something went wrong. Please try again.' },
+        { id: `a-${Date.now()}`, role: "assistant", type: "text", text: "Something went wrong. Please try again." },
       ])
     } finally {
       setIsProcessing(false)
@@ -222,17 +266,9 @@ export default function Page() {
 
   return (
     <main className="min-h-dvh mx-auto max-w-md px-4 pb-24 pt-2 flex flex-col">
-      <img
-        src="/images/reference/gumo-home.jpg"
-        alt=""
-        aria-hidden
-        className="hidden"
-      />
+      <img src="/images/reference/gumo-home.jpg" alt="" aria-hidden className="hidden" />
 
-      <TopBar
-        onShowHistory={() => setShowHistory(true)}
-        onNewChat={startNewChat}
-      />
+      <TopBar onShowHistory={() => setShowHistory(true)} onNewChat={startNewChat} />
 
       {showHistory && (
         <ChatHistory
@@ -240,7 +276,7 @@ export default function Page() {
           onSelectSession={loadChatSession}
           onClose={() => setShowHistory(false)}
           onDeleteSession={(sessionId) => {
-            setChatSessions(prev => prev.filter(s => s.id !== sessionId))
+            setChatSessions((prev) => prev.filter((s) => s.id !== sessionId))
           }}
         />
       )}
@@ -248,9 +284,7 @@ export default function Page() {
       <section className="mt-6 space-y-4">
         {messages.length === 0 ? (
           <>
-            <h1 className="text-pretty text-2xl font-medium">
-              What's your plan for today?
-            </h1>
+            <h1 className="text-pretty text-2xl font-medium">What's your plan for today?</h1>
 
             <div className="mt-4 space-y-4">
               <SuggestionCard
@@ -273,9 +307,7 @@ export default function Page() {
             <div className="mt-8 flex items-center justify-between">
               <p className="text-[15px] leading-6 text-[color:var(--gumo-muted)]">
                 {isProcessing ? "Processing your request..." : "Discover how"}{" "}
-                <span className="font-semibold text-[color:var(--gumo-text)]">
-                  CityPulse
-                </span>
+                <span className="font-semibold text-[color:var(--gumo-text)]">CityPulse</span>
                 {!isProcessing && <br />}
                 {!isProcessing && " can help you?"}
               </p>
@@ -291,38 +323,49 @@ export default function Page() {
         ) : (
           <div className="space-y-4">
             {messages.map((m) => (
-              <div key={m.id} className={`${['planner', 'traffic', 'events', 'food', 'explore'].includes(m.type)
-                ? 'w-full' // Full width for special UI components
-                : `rounded-2xl p-3 ${m.role === 'user' ? 'bg-white/5 ml-12' : 'bg-white/10 mr-12'}`
-                }`}>
-                {m.type === 'text' && <p className="text-sm text-white/90">{m.text}</p>}
-                {m.type === 'planner' && (
+              <div
+                key={m.id}
+                className={`${
+                  ["planner", "traffic", "events", "food", "explore"].includes(m.type)
+                    ? "w-full" // Full width for special UI components
+                    : `rounded-2xl p-3 ${m.role === "user" ? "bg-white/5 ml-12" : "bg-white/10 mr-12"}`
+                }`}
+              >
+                {m.type === "text" && <p className="text-sm text-white/90">{m.text}</p>}
+                {m.type === "planner" && (
                   <div className="mt-2">
-                    <PlannerForm
-                      destination={m.payload.destination}
-                      days={m.payload.days}
-                      query={m.payload.query}
-                    />
+                    <PlannerForm destination={m.payload.destination} days={m.payload.days} query={m.payload.query} />
                   </div>
                 )}
-                {m.type === 'traffic' && (
+                {m.type === "traffic" && (
                   <div className="mt-2">
                     <TrafficInsights query={m.payload.query} />
                   </div>
                 )}
-                {m.type === 'events' && (
+                {m.type === "events" && (
                   <div className="mt-2">
                     <EventsList heading={m.payload.heading} />
                   </div>
                 )}
-                {m.type === 'food' && (
+                {m.type === "food" && (
                   <div className="mt-2">
                     <FoodList heading={m.payload.heading} />
                   </div>
                 )}
-                {m.type === 'explore' && (
+                {m.type === "explore" && (
                   <div className="mt-2">
                     <ExploreGrid heading={m.payload.heading} />
+                  </div>
+                )}
+                {m.type === "summary" && (
+                  <div className="mt-2">
+                    <ItinerarySummaryCardV2
+                      title={m.payload.title}
+                      blurb={m.payload.blurb}
+                      bullets={m.payload.bullets}
+                      href={m.payload.href}
+                      imageSrc={m.payload.imageSrc}
+                    />
                   </div>
                 )}
               </div>

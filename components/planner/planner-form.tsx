@@ -37,23 +37,23 @@ export default function PlannerForm({ destination = "", days = 3, query = "" }: 
   const [destinations, setDestinations] = useState<Destination[]>(
     prefilled.locs.length
       ? [
-        {
-          id: "loc-1",
-          city: prefilled.locs[0],
-          days: prefilled.days ?? 3,
-          includeHotels: true,
-          places: [],
-        },
-      ]
+          {
+            id: "loc-1",
+            city: prefilled.locs[0],
+            days: prefilled.days ?? 3,
+            includeHotels: true,
+            places: [],
+          },
+        ]
       : [
-        {
-          id: "loc-1",
-          city: "",
-          days: 3,
-          includeHotels: true,
-          places: [],
-        },
-      ],
+          {
+            id: "loc-1",
+            city: "",
+            days: 3,
+            includeHotels: true,
+            places: [],
+          },
+        ],
   )
   const [newCity, setNewCity] = useState("")
 
@@ -73,10 +73,34 @@ export default function PlannerForm({ destination = "", days = 3, query = "" }: 
   }
 
   function onNext() {
-    // Mock: send to /itinerary with simple encoded state
+    // Build query params for itinerary page
     const params = new URLSearchParams()
     params.set("plan", encodeURIComponent(JSON.stringify(destinations.map((d) => ({ city: d.city, days: d.days })))))
-    router.push(`/itinerary?${params.toString()}`)
+
+    // Prepare summary payload
+    const first = destinations[0]
+    const title = `Trip to ${first?.city || "your destination"} (v1)`
+    const blurb =
+      `Immerse yourself in ${first?.city || "this destination"} over ${first?.days || 3} ` +
+      `${(first?.days || 3) === 1 ? "day" : "days"}, with curated highlights and flexible pacing.`
+    const bullets = (
+      first?.places?.length ? first?.places : ["Top museum", "Great local restaurant", "Waterfront walk"]
+    ).slice(0, 3)
+
+    const href = `/itinerary?${params.toString()}`
+    const imageSrc = "/images/reference/itinerary-summary-user.png"
+
+    // Fire event so the chat can append the card inline
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("gumo:add-itinerary-summary", {
+          detail: { title, blurb, bullets, href, imageSrc },
+        }),
+      )
+    }
+
+    // Do NOT navigate; keep user in chat
+    // router.push(`/planner/results?${params.toString()}`)
   }
 
   return (
@@ -123,7 +147,7 @@ export default function PlannerForm({ destination = "", days = 3, query = "" }: 
                   const val = (e.target as HTMLInputElement).value.trim()
                   if (!val) return
                   updateDestination(d.id, { places: [...d.places, val] })
-                    ; (e.target as HTMLInputElement).value = ""
+                  ;(e.target as HTMLInputElement).value = ""
                 }
               }}
             />
@@ -140,14 +164,16 @@ export default function PlannerForm({ destination = "", days = 3, query = "" }: 
             <FieldLabel>Include hotels?</FieldLabel>
             <button
               type="button"
-              className={`h-8 w-14 rounded-full border border-white/10 ${d.includeHotels ? "bg-yellow-400" : "bg-background"
-                } relative`}
+              className={`h-8 w-14 rounded-full border border-white/10 ${
+                d.includeHotels ? "bg-yellow-400" : "bg-background"
+              } relative`}
               aria-pressed={d.includeHotels}
               onClick={() => updateDestination(d.id, { includeHotels: !d.includeHotels })}
             >
               <span
-                className={`absolute top-1 h-6 w-6 rounded-full bg-black transition-all ${d.includeHotels ? "right-1" : "left-1"
-                  }`}
+                className={`absolute top-1 h-6 w-6 rounded-full bg-black transition-all ${
+                  d.includeHotels ? "right-1" : "left-1"
+                }`}
               />
             </button>
           </div>
