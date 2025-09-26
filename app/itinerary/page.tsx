@@ -4,7 +4,7 @@ import type React from "react"
 
 import Image from "next/image"
 import { useMemo, useState } from "react"
-import { MapPin, Share2, MessageCircle, Star } from "lucide-react"
+import { MapPin, Share2, MessageCircle, Star, Download, Hotel } from "lucide-react"
 
 type POI = {
   id: string
@@ -21,9 +21,8 @@ function Tab({ active, children, onClick }: { active?: boolean; children: React.
   return (
     <button
       onClick={onClick}
-      className={`rounded-full px-3 py-1.5 text-sm ${
-        active ? "bg-yellow-400 text-black" : "border border-white/10 text-foreground/80"
-      }`}
+      className={`rounded-full px-3 py-1.5 text-sm ${active ? "bg-yellow-400 text-black" : "border border-white/10 text-foreground/80"
+        }`}
     >
       {children}
     </button>
@@ -80,50 +79,38 @@ export default function ItineraryPage({ searchParams }: { searchParams: { plan?:
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-6">
       <header className="mb-6 flex items-center justify-between">
-        <div className="space-y-1">
-          <button className="text-sm text-foreground/60 flex items-center gap-2" onClick={() => history.back()}>
-            ← Itinerary
-          </button>
-          <h1 className="text-pretty text-2xl font-semibold">Trip to {city} (v1)</h1>
-        </div>
         <div className="flex items-center gap-2">
           <button className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1">
-            🗺️ Map View
+            Map View
           </button>
           <button className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1">
-            🏨 Hotels →
+            Hotels
           </button>
           <button className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1">
-            ⬇ Download
+            <Download className="size-3" /> Download
           </button>
         </div>
       </header>
+      <div className="space-y-1">
+        <button className="text-sm text-foreground/60 flex items-center gap-2" onClick={() => history.back()}>
+          ← Itinerary
+        </button>
+        <h1 className="text-pretty text-2xl font-semibold mb-2">Trip to {city} (v1)</h1>
+      </div>
 
       <div id="day-section" className="mb-6 flex flex-wrap gap-2">
         {Array.from({ length: daysTotal }).map((_, i) => (
           <button
             key={i}
             onClick={() => setDay(i + 1)}
-            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-              day === i + 1
-                ? "bg-[color:var(--gumo-yellow)] text-black"
-                : "border border-white/10 text-foreground/80 hover:bg-white/5"
-            }`}
+            className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${day === i + 1
+              ? "bg-[color:var(--gumo-yellow)] text-black"
+              : "border border-white/10 text-foreground/80 hover:bg-white/5"
+              }`}
           >
             Day {i + 1}
           </button>
         ))}
-      </div>
-
-      <div className="mb-6 flex flex-wrap gap-2">
-        <div className="flex items-center gap-2 rounded-full bg-[color:var(--gumo-yellow)] px-3 py-2 text-xs text-black">
-          <span className="text-yellow-900">📋</span>
-          <span>Staffed by friendly volunteers</span>
-        </div>
-        <div className="flex items-center gap-2 rounded-full bg-[color:var(--gumo-yellow)] px-3 py-2 text-xs text-black">
-          <span className="text-yellow-900">❄️</span>
-          <span>Third building has air conditioning</span>
-        </div>
       </div>
 
       <div className="relative">
@@ -133,7 +120,7 @@ export default function ItineraryPage({ searchParams }: { searchParams: { plan?:
           {pois.map((p, idx) => (
             <div key={p.id} className="relative flex gap-4">
               <div className="relative z-10 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[color:var(--gumo-yellow)] text-black">
-                <span className="text-lg">{idx === 0 ? "🏛️" : idx === 1 ? "🍜" : "🌊"}</span>
+                <Hotel />
               </div>
 
               <div className="flex-1 min-w-0 pb-2">
@@ -196,18 +183,20 @@ export default function ItineraryPage({ searchParams }: { searchParams: { plan?:
         </div>
       </div>
 
-      <div className="sticky bottom-4 mt-8 flex flex-wrap items-center gap-2 p-4 rounded-2xl bg-card/80 backdrop-blur border border-[color:var(--border)]">
+      <div className="sticky bottom-4 mt-8 grid items-center gap-2 p-4 rounded-2xl bg-card/80 backdrop-blur border border-[color:var(--border)]">
         <button className="flex-1 rounded-full bg-[color:var(--gumo-yellow)] px-4 py-2.5 text-sm font-medium text-black flex items-center justify-center gap-2">
-          <span>🗺️</span>
           Open Day {day} in Google Maps
         </button>
-        <button className="rounded-full bg-green-500 px-4 py-2.5 text-white text-sm font-medium flex items-center gap-2">
-          <MessageCircle className="size-4" />
-          WhatsApp
-        </button>
-        <button className="rounded-full bg-foreground px-4 py-2.5 text-background text-sm font-medium flex items-center gap-2">
-          <Share2 className="size-4" />
-        </button>
+        <div className="flex gap-2">
+          <button className="rounded-full bg-green-500 px-4 py-2.5 text-white text-sm font-medium flex items-center gap-2">
+            <MessageCircle className="size-4" />
+            WhatsApp
+          </button>
+          <button className="rounded-full bg-foreground px-4 py-2.5 text-background text-sm font-medium flex items-center gap-2">
+            <Share2 className="size-4" />
+          </button>
+        </div>
+
       </div>
     </main>
   )
