@@ -4,7 +4,25 @@ import type React from "react"
 
 import { useRouter } from "next/navigation"
 
+type PlannerData = {
+  destination: string
+  days: number
+  suggestedTitle: string
+  description: string
+  highlights: string[]
+  bestTimeToVisit: string
+  estimatedBudget: string
+  suggestedActivities: Array<{
+    day: number
+    activity: string
+    location: string
+    duration: string
+  }>
+}
+
 interface PlannerFormProps {
+  data?: PlannerData
+  // Legacy props for backward compatibility
   destination?: string
   days?: number
   query?: string
@@ -26,34 +44,37 @@ function SectionCard({ children }: { children: React.ReactNode }) {
   return <section className="rounded-2xl border border-white/5 bg-background/40 p-4 shadow-sm">{children}</section>
 }
 
-export default function PlannerForm({ destination = "", days = 3, query = "" }: PlannerFormProps = {}) {
+export default function PlannerForm({ data, destination = "", days = 3, query = "" }: PlannerFormProps = {}) {
+  // Use data from AI if available, otherwise fall back to legacy props
+  const finalDestination = data?.destination || destination
+  const finalDays = data?.days || days
   const router = useRouter()
 
   const prefilled = useMemo(() => {
-    const locs = destination ? [destination] : []
-    return { locs, days }
-  }, [destination, days])
+    const locs = finalDestination ? [finalDestination] : []
+    return { locs, days: finalDays }
+  }, [finalDestination, finalDays])
 
   const [destinations, setDestinations] = useState<Destination[]>(
     prefilled.locs.length
       ? [
-          {
-            id: "loc-1",
-            city: prefilled.locs[0],
-            days: prefilled.days ?? 3,
-            includeHotels: true,
-            places: [],
-          },
-        ]
+        {
+          id: "loc-1",
+          city: prefilled.locs[0],
+          days: prefilled.days ?? 3,
+          includeHotels: true,
+          places: data?.highlights || [],
+        },
+      ]
       : [
-          {
-            id: "loc-1",
-            city: "",
-            days: 3,
-            includeHotels: true,
-            places: [],
-          },
-        ],
+        {
+          id: "loc-1",
+          city: "",
+          days: 3,
+          includeHotels: true,
+          places: [],
+        },
+      ],
   )
   const [newCity, setNewCity] = useState("")
 
@@ -147,7 +168,7 @@ export default function PlannerForm({ destination = "", days = 3, query = "" }: 
                   const val = (e.target as HTMLInputElement).value.trim()
                   if (!val) return
                   updateDestination(d.id, { places: [...d.places, val] })
-                  ;(e.target as HTMLInputElement).value = ""
+                    ; (e.target as HTMLInputElement).value = ""
                 }
               }}
             />
@@ -164,16 +185,14 @@ export default function PlannerForm({ destination = "", days = 3, query = "" }: 
             <FieldLabel>Include hotels?</FieldLabel>
             <button
               type="button"
-              className={`h-8 w-14 rounded-full border border-white/10 ${
-                d.includeHotels ? "bg-yellow-400" : "bg-background"
-              } relative`}
+              className={`h-8 w-14 rounded-full border border-white/10 ${d.includeHotels ? "bg-yellow-400" : "bg-background"
+                } relative`}
               aria-pressed={d.includeHotels}
               onClick={() => updateDestination(d.id, { includeHotels: !d.includeHotels })}
             >
               <span
-                className={`absolute top-1 h-6 w-6 rounded-full bg-black transition-all ${
-                  d.includeHotels ? "right-1" : "left-1"
-                }`}
+                className={`absolute top-1 h-6 w-6 rounded-full bg-black transition-all ${d.includeHotels ? "right-1" : "left-1"
+                  }`}
               />
             </button>
           </div>
