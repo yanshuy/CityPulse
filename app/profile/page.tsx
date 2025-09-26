@@ -100,8 +100,11 @@ export default function ProfilePage() {
         {/* Content */}
         {tab === "settings" ? (
           <div className="mt-4 space-y-4">
-            <div className="gumo-card p-4">
-              <h2 className="text-lg font-semibold text-white mb-4">Notification Settings</h2>
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold text-[color:var(--gumo-text)] px-1 flex items-center gap-2">
+                <Settings className="h-5 w-5 text-[color:var(--gumo-yellow)]" />
+                App Settings
+              </h2>
               <NotificationSettings />
             </div>
           </div>
