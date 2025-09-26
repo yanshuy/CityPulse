@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react"
 import { itineraryDB, type Itinerary } from "@/lib/db/itinerary-db"
 import ItinerarySummaryCardV2 from "@/components/gumo/itinerary-summary-card-v2"
-import { MapPin, Calendar, Trash2, Plus } from "lucide-react"
+import { MapPin, Calendar, Trash2, Plus, Settings } from "lucide-react"
+import NotificationSettings from "@/components/notifications/notification-settings"
 
 export default function ProfilePage() {
+  const [following, setFollowing] = useState(false)
+  const [tab, setTab] = useState<"posts" | "liked" | "bucket" | "settings">("posts")
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -185,6 +188,7 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
 
       {/* Add some bottom padding for mobile navigation */}
       <div className="h-20" />
