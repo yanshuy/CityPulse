@@ -1,27 +1,30 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { Paperclip, Phone } from "lucide-react"
 
-export function ChatInput() {
+interface ChatInputProps {
+  onQuerySubmit: (query: string) => void
+}
+
+export function ChatInput({ onQuerySubmit }: ChatInputProps) {
   const [value, setValue] = useState("")
-  const router = useRouter()
 
   function submit() {
     if (!value.trim()) return
-    router.push(`/explore?prompt=${encodeURIComponent(value.trim())}`)
+    onQuerySubmit(value.trim())
+    setValue("") // Clear input after submission
   }
 
   return (
     <div className="relative">
       <label htmlFor="gumo-chat" className="sr-only">
-        Ask Gumo anything
+        Ask about traffic, events, or local places...
       </label>
       <div className="rounded-2xl bg-[color:var(--gumo-surface)] gumo-input-outline px-4 py-3 flex items-center justify-between">
         <input
           id="gumo-chat"
-          placeholder="Ask me anything..."
+          placeholder="Ask about traffic, events, or local places..."
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
