@@ -1,10 +1,10 @@
 "use client"
-import { useMemo, useState } from "react"
+import { useState, useMemo } from "react"
 import type React from "react"
-
 import { useRouter } from "next/navigation"
 import { SaveItineraryButton } from "@/components/itinerary/save-itinerary-button"
 import { PlannerFormProps } from "@/lib/types/component-schemas"
+import { saveItinerary } from "@/lib/itinerary-storage"
 
 type Destination = {
   id: string
@@ -84,6 +84,8 @@ export default function PlannerForm({ data }: PlannerFormProps) {
       window.dispatchEvent(
         new CustomEvent("gumo:itinerary-generating", {
           detail: {
+            destination: first.city,
+            days: first.days,
             message: `Generating your ${first.days}-day itinerary for ${first.city}...`
           },
         }),
@@ -113,20 +115,16 @@ export default function PlannerForm({ data }: PlannerFormProps) {
 
       const itinerary = result.data
 
-      // Build URL with generated itinerary
-      const params = new URLSearchParams()
-      params.set("itinerary", encodeURIComponent(JSON.stringify(itinerary)))
-
-      const href = `/itinerary?${params.toString()}`
-
-      // Fire event with generated itinerary data
+      // Save itinerary to storage and build URL with ID
+      const itineraryId = saveItinerary(itinerary)
+      const href = `/itinerary?id=${itineraryId}`      // Fire event with generated itinerary data
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent("gumo:add-itinerary-summary", {
             detail: {
               title: itinerary.title,
               blurb: itinerary.overview,
-              bullets: itinerary.days[0]?.items.slice(0, 3).map(item => item.name) || itinerary.generalTips.slice(0, 3),
+              bullets: itinerary.days[0]?.items.slice(0, 3).map((item: any) => item.name) || itinerary.generalTips.slice(0, 3),
               href,
               imageSrc: "/images/reference/itinerary-summary-user.png",
               itinerary // Include full itinerary data
@@ -256,7 +254,7 @@ export default function PlannerForm({ data }: PlannerFormProps) {
         <div className="mt-4 flex items-center justify-between gap-2">
           {/* Left side: Save Itinerary Button */}
           <SaveItineraryButton
-            chatData={{
+            itineraryData={{
               title: data?.suggestedTitle || `${finalDays}-day ${finalDestination} Trip`,
               description: data?.description || `Explore ${finalDestination} in ${finalDays} days`,
               destination: finalDestination,

@@ -13,6 +13,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { chatHistoryDB, generateSessionId, generateSessionTitle, type ChatSession } from "@/lib/chat-history"
 import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-itinerary-summary-card"
+import ItineraryGenerationLoader from "@/components/itinerary/itinerary-generation-loader"
 import ServiceWorkerRegistration from "@/components/pwa/service-worker"
 // import InstallPrompt from "@/components/pwa/install-prompt"
 
@@ -132,6 +133,12 @@ export default function Page() {
       type: "summary"
       payload: { title: string; blurb: string; bullets: string[]; href: string; imageSrc?: string }
     }
+    | {
+      id: string
+      role: "assistant"
+      type: "itinerary-loading"
+      payload: { destination: string; days: number; message: string }
+    }
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const router = useRouter()
@@ -211,18 +218,65 @@ export default function Page() {
     function onAdd(e: Event) {
       const ce = e as CustomEvent<{ title: string; blurb: string; bullets: string[]; href: string; imageSrc?: string }>
       if (!ce.detail) return
+
+      // Replace any existing loading message with the summary
+      setMessages((prev) => {
+        const filtered = prev.filter(m => m.type !== "itinerary-loading")
+        return [
+          ...filtered,
+          {
+            id: `a-${Date.now()}-s`,
+            role: "assistant",
+            type: "summary",
+            payload: ce.detail,
+          },
+        ]
+      })
+    }
+
+    function onLoadingStart(e: Event) {
+      const ce = e as CustomEvent<{ destination: string; days: number; message: string }>
+      if (!ce.detail) return
+
       setMessages((prev) => [
         ...prev,
         {
-          id: `a-${Date.now()}-s`,
+          id: `a-${Date.now()}-loading`,
           role: "assistant",
-          type: "summary",
+          type: "itinerary-loading",
           payload: ce.detail,
         },
       ])
     }
+
+    function onError(e: Event) {
+      const ce = e as CustomEvent<{ error: string }>
+      if (!ce.detail) return
+
+      // Remove loading message and show error
+      setMessages((prev) => {
+        const filtered = prev.filter(m => m.type !== "itinerary-loading")
+        return [
+          ...filtered,
+          {
+            id: `a-${Date.now()}-error`,
+            role: "assistant",
+            type: "text",
+            text: `Sorry, I couldn't generate your itinerary: ${ce.detail.error}. Please try again.`,
+          },
+        ]
+      })
+    }
+
     window.addEventListener("gumo:add-itinerary-summary", onAdd as EventListener)
-    return () => window.removeEventListener("gumo:add-itinerary-summary", onAdd as EventListener)
+    window.addEventListener("gumo:itinerary-generating", onLoadingStart as EventListener)
+    window.addEventListener("gumo:itinerary-error", onError as EventListener)
+
+    return () => {
+      window.removeEventListener("gumo:add-itinerary-summary", onAdd as EventListener)
+      window.removeEventListener("gumo:itinerary-generating", onLoadingStart as EventListener)
+      window.removeEventListener("gumo:itinerary-error", onError as EventListener)
+    }
   }, [])
 
   async function handleQuery(query: string) {
@@ -454,6 +508,14 @@ export default function Page() {
                         chatData={m.payload}
                         onSaved={(id) => console.log('Itinerary saved from summary:', id)}
                         onError={(error) => console.error('Save failed from summary:', error)}
+                      />
+                    </div>
+                  )}
+                  {m.type === "itinerary-loading" && (
+                    <div className="mb-6">
+                      <ItineraryGenerationLoader
+                        destination={m.payload.destination}
+                        days={m.payload.days}
                       />
                     </div>
                   )}

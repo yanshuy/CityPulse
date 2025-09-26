@@ -2,12 +2,12 @@
 
 import React from 'react'
 import { Button } from '@/components/ui/button'
-import { useItineraryStorage, extractItineraryFromChat } from '@/hooks/use-itinerary-storage'
 import { BookmarkIcon, CheckIcon, LoaderIcon } from 'lucide-react'
+import { saveItineraryPermanent } from '@/lib/itinerary-storage'
 import { cn } from '@/lib/utils'
 
 interface SaveItineraryButtonProps {
-  chatData: any
+  itineraryData: any
   className?: string
   variant?: 'default' | 'outline' | 'ghost'
   size?: 'default' | 'sm' | 'lg' | 'icon'
@@ -16,43 +16,44 @@ interface SaveItineraryButtonProps {
 }
 
 export function SaveItineraryButton({
-  chatData,
-  className,
+  itineraryData,
+  className = '',
   variant = 'outline',
   size = 'sm',
   onSaved,
   onError
 }: SaveItineraryButtonProps) {
-  const { saving, error, saveItinerary, clearError } = useItineraryStorage()
+  const [saving, setSaving] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
 
   const handleSave = async () => {
-    if (!chatData) return
+    if (!itineraryData) return
+
+    setError(null)
+    setSaving(true)
 
     try {
-      clearError()
-      const itineraryData = extractItineraryFromChat(chatData)
-      const id = await saveItinerary(itineraryData)
-      
-      if (id) {
-        setSaved(true)
-        onSaved?.(id)
-        
-        // Reset saved state after 2 seconds
-        setTimeout(() => setSaved(false), 2000)
-      } else if (error) {
-        onError?.(error)
-      }
+      const id = await saveItineraryPermanent(itineraryData)
+      setSaved(true)
+      onSaved?.(id)
+
+      // Reset saved state after 3 seconds
+      setTimeout(() => setSaved(false), 3000)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save itinerary'
+      setError(errorMessage)
       onError?.(errorMessage)
+    } finally {
+      setSaving(false)
     }
   }
 
-  if (saved) {
+  // Show success state if recently saved
+  if (saved && !error) {
     return (
       <Button
-        variant="outline"
+        variant={variant}
         size={size}
         className={cn("text-green-600 border-green-200 hover:bg-green-50", className)}
         disabled
@@ -67,9 +68,9 @@ export function SaveItineraryButton({
     <Button
       variant={variant}
       size={size}
-      className={className}
       onClick={handleSave}
-      disabled={saving}
+      disabled={saving || !itineraryData}
+      className={className}
     >
       {saving ? (
         <LoaderIcon className="w-4 h-4 mr-2 animate-spin" />
@@ -81,34 +82,34 @@ export function SaveItineraryButton({
   )
 }
 
-// Alternative compact version for tight spaces
+// Compact icon-only version for tight spaces
 export function SaveItineraryIconButton({
-  chatData,
+  itineraryData,
   className,
   onSaved,
   onError
 }: Omit<SaveItineraryButtonProps, 'size' | 'variant'>) {
-  const { saving, error, saveItinerary, clearError } = useItineraryStorage()
+  const [saving, setSaving] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
 
   const handleSave = async () => {
-    if (!chatData) return
+    if (!itineraryData) return
+
+    setError(null)
+    setSaving(true)
 
     try {
-      clearError()
-      const itineraryData = extractItineraryFromChat(chatData)
-      const id = await saveItinerary(itineraryData)
-      
-      if (id) {
-        setSaved(true)
-        onSaved?.(id)
-        setTimeout(() => setSaved(false), 2000)
-      } else if (error) {
-        onError?.(error)
-      }
+      const id = await saveItineraryPermanent(itineraryData)
+      setSaved(true)
+      onSaved?.(id)
+      setTimeout(() => setSaved(false), 2000)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save itinerary'
+      setError(errorMessage)
       onError?.(errorMessage)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -122,7 +123,7 @@ export function SaveItineraryIconButton({
         className
       )}
       onClick={handleSave}
-      disabled={saving}
+      disabled={saving || !itineraryData}
       title={saving ? 'Saving...' : saved ? 'Saved!' : 'Save Itinerary'}
     >
       {saving ? (

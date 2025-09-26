@@ -1,35 +1,57 @@
 "use client"
 
 import { useSearchParams, useRouter } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import ItineraryDisplay from "@/components/itinerary/dynamic-itinerary-display"
 import EditItineraryModal from "@/components/itinerary/edit-itinerary-modal"
 import { GeneratedItinerary, ItineraryItem } from "@/lib/types/component-schemas"
+import { getItinerary, saveItinerary } from "@/lib/itinerary-storage"
 
 export default function ItineraryPage() {
   const searchParams = useSearchParams()
 
-  const itinerary = useMemo(() => {
-    try {
-      const itineraryParam = searchParams.get('itinerary')
-      if (itineraryParam) {
-        return JSON.parse(decodeURIComponent(itineraryParam)) as GeneratedItinerary
+  const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadItinerary = async () => {
+      try {
+        setLoading(true)
+        const itineraryId = searchParams.get('id')
+
+        if (itineraryId) {
+          const itineraryData = await getItinerary(itineraryId)
+          if (itineraryData) {
+            setItinerary(itineraryData)
+          } else {
+            setError('Itinerary not found')
+          }
+        } else {
+          // Fallback: check for old URL format
+          const itineraryParam = searchParams.get('itinerary')
+          if (itineraryParam) {
+            try {
+              const decoded = JSON.parse(decodeURIComponent(itineraryParam)) as GeneratedItinerary
+              setItinerary(decoded)
+              // Optionally save to storage for future use
+              saveItinerary(decoded)
+            } catch (parseError) {
+              setError('Invalid itinerary data')
+            }
+          } else {
+            setError('No itinerary ID provided')
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load itinerary:', err)
+        setError(err instanceof Error ? err.message : 'Failed to load itinerary')
+      } finally {
+        setLoading(false)
       }
-
-      // Fallback for old plan format
-      const planParam = searchParams.get('plan')
-      if (planParam) {
-        const plan = JSON.parse(decodeURIComponent(planParam)) as Array<{ city: string; days: number }>
-
-        // Show message that this is old format and needs to be regenerated
-        return null
-      }
-
-      return null
-    } catch (error) {
-      console.error('Failed to parse itinerary data:', error)
-      return null
     }
+
+    loadItinerary()
   }, [searchParams])
 
   const router = useRouter()
@@ -120,7 +142,9 @@ export default function ItineraryPage() {
   }
 
   const updateUrlWithItinerary = (updatedItinerary: GeneratedItinerary) => {
-    const newUrl = `/itinerary?itinerary=${encodeURIComponent(JSON.stringify(updatedItinerary))}`
+    // Save updated itinerary to storage
+    const itineraryId = saveItinerary(updatedItinerary)
+    const newUrl = `/itinerary?id=${itineraryId}`
     router.replace(newUrl, { scroll: false })
   }
 
@@ -133,13 +157,24 @@ export default function ItineraryPage() {
     return day?.items.find(item => item.id === editingItem.itemId)
   }
 
-  if (!itinerary) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[color:var(--gumo-bg)] flex items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-white mb-4">No Itinerary Found</h1>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[color:var(--gumo-yellow)] mb-4"></div>
+          <p className="text-white/70">Loading your itinerary...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !itinerary) {
+    return (
+      <div className="min-h-screen bg-[color:var(--gumo-bg)] flex items-center justify-center p-4">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Itinerary Not Found</h1>
           <p className="text-white/70 mb-6">
-            This itinerary link is invalid or expired. Please generate a new one.
+            {error || 'This itinerary link is invalid or expired. Please generate a new one.'}
           </p>
           <a
             href="/"
@@ -150,9 +185,7 @@ export default function ItineraryPage() {
         </div>
       </div>
     )
-  }
-
-  return (
+  } return (
     <div className="min-h-screen bg-[color:var(--gumo-bg)] p-4">
       <div className="max-w-4xl mx-auto">
         {/* Back Button */}
