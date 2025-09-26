@@ -1,0 +1,1482 @@
+"use client"
+
+import React, { useCallback, useEffect, useState, useMemo, useRef } from "react"
+import { Map, useApiIsLoaded, AdvancedMarker, InfoWindow, useMap } from "@vis.gl/react-google-maps"
+import { useMapsLibrary } from "@vis.gl/react-google-maps"
+import { 
+  Search, X, ChevronUp, ChevronDown, Navigation, MapPin, ArrowLeft, 
+  Car, Star, Clock, ArrowRight, Layers, AlertTriangle, Calendar,
+  Zap, Coffee, Bus, Construction, Music, MapPinIcon, Users, Wifi,
+  Bike, Train, PersonStanding
+} from "lucide-react"
+import GetUserLocation from "@/components/maps/GetUserLocation"
+import { ResizableDrawer } from "@/components/ui/resizable-drawer"
+
+// Demo data for different map layers
+export interface CityLocation {
+  id: string | number
+  name: string
+  latitude: number
+  longitude: number
+  type: 'restaurant' | 'attraction' | 'transport' | 'shopping' | 'hospital' | 'event' | 'incident' | 'other'
+  category?: string
+  description?: string
+  rating?: number
+  distance?: string
+  time?: string
+  address?: string
+  imageUrl?: string
+  severity?: 'low' | 'medium' | 'high'
+  source?: string
+  timestamp?: string
+  confidence?: number
+  startTime?: string
+  endTime?: string
+  status?: 'active' | 'resolved' | 'scheduled'
+}
+
+// Multi-layered demo data representing different map layers
+const DEMO_DATA = {
+  // Transport & Infrastructure Layer
+  transport: [
+    {
+      id: "transport-1",
+      name: "Bandra Station",
+      latitude: 19.0544,
+      longitude: 72.8406,
+      type: 'transport' as const,
+      category: 'railway',
+      description: "Major railway station on Western Line",
+      rating: 4.1,
+      distance: "0.8 km",
+      time: "3 mins",
+      address: "Bandra West, Mumbai",
+      status: 'active' as const
+    },
+    {
+      id: "transport-2", 
+      name: "Bus Stop - Linking Road",
+      latitude: 19.0554,
+      longitude: 72.8356,
+      type: 'transport' as const,
+      category: 'bus',
+      description: "AC & Non-AC bus services",
+      distance: "0.3 km",
+      time: "1 min",
+      address: "Linking Road, Bandra West",
+      status: 'active' as const
+    }
+  ],
+
+  // Live Incidents & Alerts Layer
+  incidents: [
+    {
+      id: "incident-1",
+      name: "Metro Line 2 Maintenance",
+      latitude: 19.0564,
+      longitude: 72.8416,
+      type: 'incident' as const,
+      category: 'transport_maintenance',
+      description: "15-min delays due to signal maintenance",
+      severity: 'high' as const,
+      source: "Mumbai Metro",
+      timestamp: "2 min ago",
+      confidence: 95,
+      status: 'active' as const
+    },
+    {
+      id: "incident-2",
+      name: "Water Supply Cut",
+      latitude: 19.0534,
+      longitude: 72.8396,
+      type: 'incident' as const,
+      category: 'utility',
+      description: "Scheduled maintenance, 2-6 PM",
+      severity: 'medium' as const,
+      source: "BMC",
+      timestamp: "1 hour ago",
+      confidence: 100,
+      status: 'scheduled' as const
+    },
+    {
+      id: "incident-3",
+      name: "Road Construction",
+      latitude: 19.0574,
+      longitude: 72.8386,
+      type: 'incident' as const,
+      category: 'construction',
+      description: "Lane closure on SV Road",
+      severity: 'medium' as const,
+      source: "Traffic Police",
+      timestamp: "45 min ago",
+      confidence: 90,
+      status: 'active' as const
+    }
+  ],
+
+  // Events & Discovery Layer
+  events: [
+    {
+      id: "event-1",
+      name: "Food Festival",
+      latitude: 19.0504,
+      longitude: 72.8446,
+      type: 'event' as const,
+      category: 'food',
+      description: "Weekend food festival at Bandstand",
+      rating: 4.5,
+      distance: "2.1 km",
+      time: "8 mins",
+      address: "Bandstand, Bandra West",
+      startTime: "6:00 PM",
+      endTime: "11:00 PM",
+      status: 'active' as const
+    },
+    {
+      id: "event-2",
+      name: "Live Music Performance",
+      latitude: 19.0524,
+      longitude: 72.8366,
+      type: 'event' as const,
+      category: 'music',
+      description: "Acoustic evening at Carter Road",
+      rating: 4.3,
+      distance: "1.2 km", 
+      time: "5 mins",
+      address: "Carter Road Promenade",
+      startTime: "7:30 PM",
+      endTime: "9:30 PM",
+      status: 'scheduled' as const
+    }
+  ],
+
+  // Places & Amenities Layer
+  places: [
+    {
+      id: "place-1",
+      name: "Linking Road Market",
+      latitude: 19.0544,
+      longitude: 72.8306,
+      type: 'shopping' as const,
+      category: 'market',
+      description: "Famous shopping street",
+      rating: 4.3,
+      distance: "1.2 km",
+      time: "5 mins",
+      address: "Linking Road, Bandra West"
+    },
+    {
+      id: "place-2",
+      name: "Café Mocha",
+      latitude: 19.0514,
+      longitude: 72.8376,
+      type: 'restaurant' as const,
+      category: 'cafe',
+      description: "Popular coffee spot",
+      rating: 4.4,
+      distance: "0.7 km",
+      time: "3 mins", 
+      address: "Hill Road, Bandra West"
+    }
+  ]
+}
+
+// Layer visibility state
+type LayerType = 'transport' | 'incidents' | 'events' | 'places' | 'heatmap'
+
+const LayerMarker = ({
+  location,
+  isSelected,
+  onClick,
+}: {
+  location: CityLocation
+  isSelected: boolean
+  onClick: () => void
+}) => {
+  const getMarkerIcon = () => {
+    switch (location.type) {
+      case 'transport':
+        return location.category === 'railway' ? <Bus className="w-4 h-4" /> : <Car className="w-4 h-4" />
+      case 'incident':
+        return <AlertTriangle className="w-4 h-4" />
+      case 'event':
+        return location.category === 'music' ? <Music className="w-4 h-4" /> : <Calendar className="w-4 h-4" />
+      case 'restaurant':
+        return <Coffee className="w-4 h-4" />
+      case 'shopping':
+        return <MapPin className="w-4 h-4" />
+      case 'other': // Searched locations
+        return <MapPin className="w-4 h-4" />
+      default:
+        return <MapPin className="w-4 h-4" />
+    }
+  }
+
+  const getMarkerColor = () => {
+    if (location.type === 'incident') {
+      switch (location.severity) {
+        case 'high': return '#ef4444'
+        case 'medium': return '#f59e0b'
+        case 'low': return '#10b981'
+        default: return '#6b7280'
+      }
+    }
+
+    switch (location.type) {
+      case 'transport': return '#3b82f6'
+      case 'event': return '#8b5cf6'
+      case 'restaurant': return '#10b981'
+      case 'shopping': return '#f59e0b'
+      case 'other': return '#F1C40F' // Yellow for searched locations
+      default: return '#F1C40F' // Default to yellow to match theme
+    }
+  }
+
+  return (
+    <div
+      className="flex flex-col items-center cursor-pointer transform transition-all duration-200 hover:scale-110"
+      onClick={onClick}
+      style={{ transform: isSelected ? 'scale(1.25)' : 'scale(1)' }}
+    >
+      <div
+        className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 border-white"
+        style={{ backgroundColor: getMarkerColor() }}
+      >
+        <div className={getMarkerColor() === '#F1C40F' ? 'text-black' : 'text-white'}>
+          {getMarkerIcon()}
+        </div>
+      </div>
+      {isSelected && (
+        <div 
+          className="w-2 h-2 rotate-45 -mt-1"
+          style={{ backgroundColor: getMarkerColor() }}
+        />
+      )}
+    </div>
+  )
+}
+
+const MarkerInfoWindow = ({ 
+  location, 
+  onDirectionsClick, 
+  showDirections = false 
+}: { 
+  location: CityLocation
+  onDirectionsClick?: (location: CityLocation) => void
+  showDirections?: boolean
+}) => {
+  return (
+    <div className="p-4 min-w-[280px] max-w-sm bg-[color:var(--gumo-surface)] rounded-xl border border-white/20">
+      <div className="flex items-start gap-3 mb-3">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ backgroundColor: location.type === 'incident' && location.severity === 'high' ? '#ef4444' : '#3b82f6' }}
+        >
+          {location.type === 'incident' ? (
+            <AlertTriangle className="w-4 h-4 text-white" />
+          ) : (
+            <MapPin className="w-4 h-4 text-white" />
+          )}
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-[color:var(--gumo-text)] text-sm">{location.name}</h3>
+          <p className="text-xs text-[color:var(--gumo-muted)] mt-1">{location.category}</p>
+        </div>
+        {location.confidence && (
+          <div className="text-xs text-[color:var(--gumo-yellow)] font-medium">
+            {location.confidence}% sure
+          </div>
+        )}
+      </div>
+
+      <p className="text-sm text-[color:var(--gumo-text)]/80 mb-3">{location.description}</p>
+
+      <div className="flex items-center gap-4 mb-3 text-xs text-[color:var(--gumo-muted)]">
+        {location.distance && (
+          <div className="flex items-center gap-1">
+            <MapPin className="w-3 h-3" />
+            <span>{location.distance}</span>
+          </div>
+        )}
+        {location.time && (
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3" />
+            <span>{location.time}</span>
+          </div>
+        )}
+        {location.rating && (
+          <div className="flex items-center gap-1">
+            <Star className="w-3 h-3 text-yellow-400 fill-current" />
+            <span>{location.rating}</span>
+          </div>
+        )}
+      </div>
+
+      {location.source && (
+        <div className="flex items-center justify-between mb-3 text-xs">
+          <span className="text-[color:var(--gumo-muted)]">Source: {location.source}</span>
+          {location.timestamp && (
+            <span className="text-[color:var(--gumo-muted)]">{location.timestamp}</span>
+          )}
+        </div>
+      )}
+
+      {(location.startTime || location.endTime) && (
+        <div className="flex items-center gap-2 mb-3 text-xs text-[color:var(--gumo-text)]">
+          <Clock className="w-3 h-3" />
+          <span>{location.startTime} - {location.endTime}</span>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        {showDirections ? (
+          <button 
+            onClick={() => onDirectionsClick?.(location)}
+            className="flex-1 py-2 px-3 rounded-lg bg-[color:var(--gumo-yellow)] text-black text-xs font-medium hover:bg-[color:var(--gumo-yellow)]/90 transition-colors flex items-center justify-center gap-1"
+          >
+            <Navigation className="w-3 h-3" />
+            Directions
+          </button>
+        ) : (
+          <button className="flex-1 py-2 px-3 rounded-lg bg-[color:var(--gumo-yellow)] text-black text-xs font-medium hover:bg-[color:var(--gumo-yellow)]/90 transition-colors">
+            Navigate
+          </button>
+        )}
+        <button className="flex-1 py-2 px-3 rounded-lg border border-white/20 text-[color:var(--gumo-text)] text-xs font-medium hover:bg-white/5 transition-colors">
+          Add to Plan
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export const MapComponent: React.FC = () => {
+  const [searchValue, setSearchValue] = useState<string>("")
+  const [loading, setLoading] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState<CityLocation | null>(null)
+  const [openInfoWindow, setOpenInfoWindow] = useState<string | null>(null)
+  const [userLocation, setUserLocation] = useState<google.maps.LatLngLiteral | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [selectedLayer, setSelectedLayer] = useState<LayerType>('transport')
+  const [isLayerDropdownOpen, setIsLayerDropdownOpen] = useState(false)
+  
+  // Autocomplete state
+  const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+
+  // Routing and directions state
+  const [directionsService, setDirectionsService] = useState<google.maps.DirectionsService | null>(null)
+  const [directionsRenderers, setDirectionsRenderers] = useState<google.maps.DirectionsRenderer[]>([])
+  const [routeOptions, setRouteOptions] = useState<google.maps.DirectionsRoute[]>([])
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0)
+  const [selectedTravelMode, setSelectedTravelMode] = useState<string>('DRIVING') // Use string initially
+  const [showRoutes, setShowRoutes] = useState(false)
+  const [searchedLocation, setSearchedLocation] = useState<CityLocation | null>(null)
+  const [trafficLayer, setTrafficLayer] = useState<google.maps.TrafficLayer | null>(null)
+  const [originalDirectionsResult, setOriginalDirectionsResult] = useState<google.maps.DirectionsResult | null>(null)
+  const [routeError, setRouteError] = useState<string | null>(null)
+
+  const mapRef = useRef<google.maps.Map | null>(null)
+  const map = useMap()
+  const apiIsLoaded = useApiIsLoaded()
+  const placesLib = useMapsLibrary("places")
+
+  // Helper function to get travel mode enum
+  const getTravelMode = (modeString: string): google.maps.TravelMode => {
+    if (!apiIsLoaded || typeof google === 'undefined') {
+      return 'DRIVING' as google.maps.TravelMode // Fallback
+    }
+    switch (modeString) {
+      case 'WALKING':
+        return google.maps.TravelMode.WALKING
+      case 'TRANSIT':
+        return google.maps.TravelMode.TRANSIT
+      case 'BICYCLING':
+        return google.maps.TravelMode.BICYCLING
+      default:
+        return google.maps.TravelMode.DRIVING
+    }
+  }
+
+  // Get all locations for current selected layer
+  const getAllVisibleLocations = () => {
+    let locations: CityLocation[] = []
+    switch (selectedLayer) {
+      case 'transport':
+        locations = [...DEMO_DATA.transport]
+        break
+      case 'incidents':
+        locations = [...DEMO_DATA.incidents]
+        break
+      case 'events':
+        locations = [...DEMO_DATA.events]
+        break
+      case 'places':
+        locations = [...DEMO_DATA.places]
+        break
+      default:
+        locations = [...DEMO_DATA.transport]
+        break
+    }
+    return locations
+  }
+
+  const visibleLocations = getAllVisibleLocations()
+
+  // Add searched location to visible locations if it exists
+  const allVisibleLocations = useMemo(() => {
+    const locations = [...visibleLocations]
+    if (selectedLocation && !locations.find(loc => loc.id === selectedLocation.id)) {
+      locations.push(selectedLocation)
+    }
+    return locations
+  }, [visibleLocations, selectedLocation])
+
+  useEffect(() => {
+    // Get user's actual current location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const currentLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }
+          setUserLocation(currentLocation)
+          console.log("User's current location:", currentLocation.lat, currentLocation.lng)
+        },
+        (error) => {
+          console.error("Error getting user location:", error)
+          // Fallback to Mumbai coordinates if location access is denied
+          setUserLocation({
+            lat: 19.0760,
+            lng: 72.8777
+          })
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 600000 // 10 minutes cache
+        }
+      )
+    } else {
+      // Fallback if geolocation is not supported
+      setUserLocation({
+        lat: 19.0760,
+        lng: 72.8777
+      })
+    }
+  }, [])
+
+  // Initialize DirectionsService only
+  useEffect(() => {
+    if (map && apiIsLoaded && !directionsService) {
+      // Initialize DirectionsService
+      const service = new google.maps.DirectionsService()
+      setDirectionsService(service)
+    }
+  }, [map, apiIsLoaded, directionsService])
+
+  // Ensure we don't cause re-renders during render
+  useEffect(() => {
+    if (apiIsLoaded && typeof google !== 'undefined') {
+      // API is loaded, we can safely use google maps objects
+    }
+  }, [apiIsLoaded])
+
+  const handleLocationUpdate = useCallback((location: { lat: number; lng: number }, address: string) => {
+    setUserLocation(location)
+  }, [])
+
+  // Autocomplete functionality - keeping compatible approach while new API stabilizes
+  const fetchAutocompleteSuggestions = useCallback(async (input: string) => {
+    if (!placesLib || !input.trim()) {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    try {
+      // Try new AutocompleteSuggestion API first, fallback to AutocompleteService if needed
+      if (placesLib.AutocompleteSuggestion) {
+        try {
+          const { AutocompleteSuggestion } = placesLib
+          const request = {
+            input: input,
+            // Remove locationRestriction for now to avoid type issues
+            // Will use componentRestrictions in fallback
+          }
+
+          const response = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request)
+          
+          if (response.suggestions && response.suggestions.length > 0) {
+            // Convert the new format to the expected format
+            const convertedSuggestions: google.maps.places.AutocompletePrediction[] = response.suggestions.map((suggestion: any) => ({
+              place_id: suggestion.placePrediction?.placeId || '',
+              description: suggestion.placePrediction?.text?.text || '',
+              structured_formatting: {
+                main_text: suggestion.placePrediction?.text?.text?.split(',')[0] || '',
+                secondary_text: suggestion.placePrediction?.text?.text?.split(',').slice(1).join(',').trim() || ''
+              },
+              types: suggestion.placePrediction?.types || []
+            } as google.maps.places.AutocompletePrediction))
+            
+            setSuggestions(convertedSuggestions)
+            setShowSuggestions(true)
+            return
+          }
+        } catch (newApiError) {
+          console.warn('New AutocompleteSuggestion API failed, falling back to AutocompleteService:', newApiError)
+        }
+      }
+
+      // Fallback to AutocompleteService (still works but deprecated)
+      const service = new placesLib.AutocompleteService()
+      const request: google.maps.places.AutocompletionRequest = {
+        input: input,
+        componentRestrictions: { country: 'in' }, // Restrict to India
+        types: ['establishment', 'geocode']
+      }
+
+      service.getPlacePredictions(request, (predictions, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+          setSuggestions(predictions)
+          setShowSuggestions(true)
+        } else {
+          setSuggestions([])
+          setShowSuggestions(false)
+        }
+      })
+    } catch (error) {
+      console.error('Error fetching autocomplete suggestions:', error)
+      setSuggestions([])
+      setShowSuggestions(false)
+    }
+  }, [placesLib])
+
+  // Handle search input change
+  const handleSearchInputChange = useCallback((value: string) => {
+    setSearchValue(value)
+    if (value.trim()) {
+      fetchAutocompleteSuggestions(value)
+    } else {
+      setSuggestions([])
+      setShowSuggestions(false)
+    }
+  }, [fetchAutocompleteSuggestions])
+
+  // Handle place selection from autocomplete
+  const handlePlaceSelect = useCallback(async (prediction: google.maps.places.AutocompletePrediction) => {
+    if (!placesLib) return
+
+    setLoading(true)
+    setSearchValue(prediction.description)
+    setShowSuggestions(false)
+
+    try {
+      // Use the new Place API instead of deprecated PlacesService
+      const { Place } = placesLib
+      const place = new Place({
+        id: prediction.place_id,
+        requestedLanguage: 'en'
+      })
+
+      // Fetch place details using the new API
+      await place.fetchFields({
+        fields: ['displayName', 'formattedAddress', 'location', 'types']
+      })
+
+      if (place.location) {
+        // Determine location type based on selected layer and place types
+        let locationtype: CityLocation['type'] = 'other'
+        
+        if (selectedLayer === 'transport') {
+          // For transport layer, treat searched places as destinations
+          locationtype = 'other' // This will show directions button
+        } else {
+          // For other layers, try to match place types to our categories
+          const placeTypes = place.types || []
+          if (placeTypes.includes('restaurant') || placeTypes.includes('food')) {
+            locationtype = 'restaurant'
+          } else if (placeTypes.includes('tourist_attraction') || placeTypes.includes('point_of_interest')) {
+            locationtype = 'attraction'
+          } else if (placeTypes.includes('store') || placeTypes.includes('shopping_mall')) {
+            locationtype = 'shopping'
+          } else if (placeTypes.includes('hospital') || placeTypes.includes('pharmacy')) {
+            locationtype = 'hospital'
+          } else {
+            locationtype = 'other'
+          }
+        }
+
+        const newLocation: CityLocation = {
+          id: prediction.place_id,
+          name: place.displayName || prediction.structured_formatting.main_text,
+          latitude: place.location.lat(),
+          longitude: place.location.lng(),
+          type: locationtype,
+          address: place.formattedAddress || prediction.description,
+          category: place.types?.[0] || 'place'
+        }
+
+        // Center map on selected location
+        if (map) {
+          map.setCenter({ lat: place.location.lat(), lng: place.location.lng() })
+          map.setZoom(16)
+        }
+
+        // Set as selected location for info window
+        setSelectedLocation(newLocation)
+        setOpenInfoWindow(newLocation.id.toString())
+      }
+    } catch (error) {
+      console.error('Error fetching place details:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [placesLib, map])
+
+  const handleSearch = async () => {
+    if (!searchValue.trim()) return
+
+    setLoading(true)
+    setShowSuggestions(false)
+
+    try {
+      // If there are suggestions, select the first one
+      if (suggestions.length > 0) {
+        await handlePlaceSelect(suggestions[0])
+        return
+      }
+
+      // Fallback: Use Text Search API to find the place
+      if (placesLib && map) {
+        const request = {
+          query: searchValue.trim(),
+          fields: ['displayName', 'formattedAddress', 'location', 'types', 'place_id']
+        }
+
+        const { places } = await placesLib.Place.searchByText(request)
+        
+        if (places && places.length > 0) {
+          const place = places[0]
+          
+          const newLocation: CityLocation = {
+            id: place.id || `search-${Date.now()}`,
+            name: place.displayName || searchValue,
+            latitude: place.location?.lat() || 0,
+            longitude: place.location?.lng() || 0,
+            type: 'other',
+            address: place.formattedAddress || '',
+            category: place.types?.[0] || 'place'
+          }
+
+          // Center map on found location
+          if (place.location) {
+            map.setCenter({ lat: place.location.lat(), lng: place.location.lng() })
+            map.setZoom(16)
+          }
+
+          // Set as selected location for info window
+          setSelectedLocation(newLocation)
+          setOpenInfoWindow(newLocation.id.toString())
+          
+          // For transport layer, calculate route if we have user location
+          if (selectedLayer === 'transport' && userLocation) {
+            calculateRoutes(newLocation)
+          }
+          
+          console.log('Found place via text search:', newLocation)
+        } else {
+          console.log('No places found for search:', searchValue)
+          // You could add a toast notification here
+        }
+      }
+    } catch (error) {
+      console.error('Error searching for place:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleClearSearch = () => {
+    setSearchValue("")
+    setSelectedLocation(null)
+    setOpenInfoWindow(null)
+    setDrawerOpen(false)
+    setSuggestions([])
+    setShowSuggestions(false)
+    clearRoutes() // Clear routes when clearing search
+  }
+
+  // Route optimization function to sort routes by time (least to most)
+  const optimizeRoutes = useCallback((routes: google.maps.DirectionsRoute[], travelMode: string) => {
+    if (!routes || routes.length <= 1) return routes
+
+    return [...routes].sort((a, b) => {
+      const aLeg = a.legs[0]
+      const bLeg = b.legs[0]
+      
+      // Get duration values (prefer traffic-aware duration for driving)
+      const getDurationValue = (leg: google.maps.DirectionsLeg, mode: string) => {
+        if (mode === 'DRIVING' && leg.duration_in_traffic) {
+          return leg.duration_in_traffic.value
+        }
+        return leg.duration?.value || 0
+      }
+
+      const aTime = getDurationValue(aLeg, travelMode)
+      const bTime = getDurationValue(bLeg, travelMode)
+
+      // Always sort by time (least to most) for all travel modes
+      return aTime - bTime
+    })
+  }, [])
+
+  // Get route optimization label for UI display
+  const getRouteOptimizationLabel = useCallback((route: google.maps.DirectionsRoute, index: number, routes: google.maps.DirectionsRoute[], travelMode: string) => {
+    if (index === 0) {
+      switch (travelMode) {
+        case 'DRIVING':
+          return "Fastest"
+        case 'WALKING':
+          return "Shortest"
+        case 'BICYCLING':
+          return "Best Route"
+        case 'TRANSIT':
+          return "Recommended"
+        default:
+          return "Optimal"
+      }
+    }
+    
+    if (routes.length > 1) {
+      const leg = route.legs[0]
+      const firstRouteLeg = routes[0].legs[0]
+      
+      const routeTime = leg.duration_in_traffic?.value || leg.duration?.value || 0
+      const firstRouteTime = firstRouteLeg.duration_in_traffic?.value || firstRouteLeg.duration?.value || 0
+      const routeDistance = leg.distance?.value || 0
+      const firstRouteDistance = firstRouteLeg.distance?.value || 0
+      
+      // Determine what makes this route different
+      if (routeDistance < firstRouteDistance * 0.9) {
+        return "Shorter"
+      } else if (routeTime > firstRouteTime * 1.1) {
+        return "Alternative"
+      } else {
+        return "Via " + (route.summary ? route.summary.split(',')[0] : "different route")
+      }
+    }
+    
+    return ""
+  }, [])
+
+  // Helper function to get travel mode icon
+  const getTravelModeIcon = useCallback((mode: string) => {
+    switch (mode) {
+      case 'DRIVING':
+        return Car
+      case 'WALKING':
+        return PersonStanding
+      case 'TRANSIT':
+        return Bus
+      case 'BICYCLING':
+        return Bike
+      default:
+        return MapPin
+    }
+  }, [])
+
+  // Calculate multiple route options with different travel modes
+  const calculateRoutes = useCallback(async (destination: CityLocation, travelModeOverride?: string) => {
+    if (!directionsService || !userLocation || !map) {
+      console.warn('DirectionsService, user location, or map not available')
+      return
+    }
+
+    // Use the provided mode override or fall back to state
+    const currentTravelMode = travelModeOverride || selectedTravelMode
+
+    setLoading(true)
+    // Clear existing route options immediately to prevent showing old data
+    setRouteOptions([])
+    setShowRoutes(false)
+    setRouteError(null) // Clear any previous errors
+
+    const origin = new google.maps.LatLng(userLocation.lat, userLocation.lng)
+    const dest = new google.maps.LatLng(destination.latitude, destination.longitude)
+
+    try {
+      // Build request based on selected travel mode
+      const travelMode = getTravelMode(currentTravelMode)
+      const request: google.maps.DirectionsRequest = {
+        origin: origin,
+        destination: dest,
+        travelMode: travelMode,
+        provideRouteAlternatives: travelMode === google.maps.TravelMode.DRIVING || travelMode === google.maps.TravelMode.WALKING,
+        avoidHighways: false,
+        avoidTolls: false,
+        ...(travelMode === google.maps.TravelMode.DRIVING && {
+          drivingOptions: {
+            departureTime: new Date(),
+            trafficModel: google.maps.TrafficModel.BEST_GUESS
+          }
+        }),
+        ...(travelMode === google.maps.TravelMode.TRANSIT && {
+          transitOptions: {
+            departureTime: new Date(),
+            modes: [google.maps.TransitMode.BUS, google.maps.TransitMode.SUBWAY, google.maps.TransitMode.RAIL]
+          }
+        })
+      }
+
+      directionsService.route(request, (result, status) => {
+        if (status === google.maps.DirectionsStatus.OK && result) {
+          console.log(`Found ${result.routes.length} route options for ${currentTravelMode}`)
+          
+          // Sort routes by optimality for the current travel mode
+          const optimizedRoutes = optimizeRoutes(result.routes, currentTravelMode)
+          
+          setRouteOptions(optimizedRoutes)
+          setOriginalDirectionsResult({...result, routes: optimizedRoutes}) // Store optimized result
+          setShowRoutes(true)
+          setSelectedRouteIndex(0)
+          
+          // Clear any existing renderers
+          directionsRenderers.forEach(renderer => {
+            renderer.setMap(null)
+          })
+
+          // Initially show only the first (most optimal) route with traffic
+          const routeColors = ['#F1C40F', '#3498DB', '#9B59B6', '#E74C3C', '#2ECC71']
+          const renderer = new google.maps.DirectionsRenderer({
+            routeIndex: 0,
+            polylineOptions: {
+              strokeColor: routeColors[0],
+              strokeWeight: 6,
+              strokeOpacity: 0.8,
+            },
+            suppressMarkers: false,
+            suppressInfoWindows: true,
+          })
+
+          // Create result with only first (optimal) route
+          const singleRouteResult: google.maps.DirectionsResult = {
+            ...result,
+            routes: [optimizedRoutes[0]]
+          }
+          
+          renderer.setDirections(singleRouteResult)
+          renderer.setMap(map)
+          setDirectionsRenderers([renderer])
+
+          // Enable traffic layer for driving mode
+          if (currentTravelMode === 'DRIVING' && !trafficLayer) {
+            const traffic = new google.maps.TrafficLayer()
+            traffic.setMap(map)
+            setTrafficLayer(traffic)
+          }
+          
+          // Fit map to show the selected route
+          const bounds = new google.maps.LatLngBounds()
+          optimizedRoutes[0].legs.forEach(leg => {
+            leg.steps.forEach(step => {
+              bounds.extend(step.start_location)
+              bounds.extend(step.end_location)
+            })
+          })
+          map.fitBounds(bounds)
+        } else {
+          // Handle different error types with user-friendly messages
+          let errorMessage = 'Unable to calculate route'
+          
+          switch (status) {
+            case google.maps.DirectionsStatus.ZERO_RESULTS:
+              switch (currentTravelMode) {
+                case 'BICYCLING':
+                  errorMessage = 'No cycling routes available for this area. Cycling data may be limited.'
+                  break
+                case 'TRANSIT':
+                  errorMessage = 'No public transit routes available for this route.'
+                  break
+                case 'WALKING':
+                  errorMessage = 'No walking routes available for this distance.'
+                  break
+                default:
+                  errorMessage = 'No routes found for the selected travel mode.'
+              }
+              break
+            case google.maps.DirectionsStatus.NOT_FOUND:
+              errorMessage = 'Location could not be geocoded.'
+              break
+            case google.maps.DirectionsStatus.OVER_QUERY_LIMIT:
+              errorMessage = 'Too many requests. Please try again in a moment.'
+              break
+            case google.maps.DirectionsStatus.REQUEST_DENIED:
+              errorMessage = 'Directions request was denied.'
+              break
+            case google.maps.DirectionsStatus.INVALID_REQUEST:
+              errorMessage = 'Invalid directions request.'
+              break
+            case google.maps.DirectionsStatus.UNKNOWN_ERROR:
+              errorMessage = 'Unknown error occurred. Please try again.'
+              break
+            default:
+              errorMessage = `Directions request failed: ${status}`
+          }
+          
+          console.warn(`Directions request failed for ${currentTravelMode}: ${status} - ${errorMessage}`)
+          
+          // Clear any existing routes and show error state
+          setRouteOptions([])
+          setShowRoutes(false)
+          setRouteError(errorMessage)
+          
+          // You could show a toast notification here
+          // For now, we'll rely on the console warning and the error state display
+        }
+        setLoading(false)
+      })
+    } catch (error) {
+      console.error('Error calculating routes:', error)
+      setLoading(false)
+    }
+  }, [directionsService, userLocation, map, selectedTravelMode, directionsRenderers, optimizeRoutes, getTravelMode, trafficLayer])
+
+  // Clear all routes from map
+  const clearRoutes = useCallback(() => {
+    directionsRenderers.forEach(renderer => {
+      renderer.setMap(null)
+    })
+    setDirectionsRenderers([])
+    setRouteOptions([])
+    setShowRoutes(false)
+    setRouteError(null) // Clear any route errors
+  }, [directionsRenderers])
+
+  // Select a specific route and show only that route
+  const selectRoute = useCallback((routeIndex: number) => {
+    setSelectedRouteIndex(routeIndex)
+    
+    // Clear all existing renderers
+    directionsRenderers.forEach(renderer => {
+      renderer.setMap(null)
+    })
+
+    // Show only the selected route with traffic
+    if (routeOptions[routeIndex] && map && originalDirectionsResult) {
+      const selectedRoute = routeOptions[routeIndex]
+      const routeColors = ['#F1C40F', '#3498DB', '#9B59B6', '#E74C3C', '#2ECC71']
+      
+      // Create a new renderer for only the selected route with traffic enabled
+      const renderer = new google.maps.DirectionsRenderer({
+        routeIndex: 0, // Always 0 since we're only showing one route
+        polylineOptions: {
+          strokeColor: routeColors[routeIndex % routeColors.length],
+          strokeWeight: 6,
+          strokeOpacity: 0.8,
+        },
+        suppressMarkers: false,
+        suppressInfoWindows: true,
+      })
+
+      // Create a new directions result with only the selected route
+      const singleRouteResult: google.maps.DirectionsResult = {
+        ...originalDirectionsResult,
+        routes: [selectedRoute] // Only include the selected route
+      }
+      
+      renderer.setDirections(singleRouteResult)
+      renderer.setMap(map)
+      
+      // Update the renderers array to only contain the selected route renderer
+      setDirectionsRenderers([renderer])
+
+      // Enable traffic layer for the selected route area
+      if (!trafficLayer) {
+        const traffic = new google.maps.TrafficLayer()
+        traffic.setMap(map)
+        setTrafficLayer(traffic)
+      }
+    }
+  }, [directionsRenderers, routeOptions, map, trafficLayer, originalDirectionsResult])
+
+  // Add traffic layer state
+
+  // Change travel mode and recalculate routes
+  const changeTravelMode = useCallback((mode: string) => {
+    setSelectedTravelMode(mode)
+    if (selectedLocation) {
+      // Pass the new mode directly to avoid state race condition
+      calculateRoutes(selectedLocation, mode)
+    }
+  }, [selectedLocation, calculateRoutes])
+
+  const selectLayer = (layer: LayerType) => {
+    // Clear routes when switching away from transport layer
+    if (selectedLayer === 'transport' && layer !== 'transport' && showRoutes) {
+      clearRoutes()
+    }
+    setSelectedLayer(layer)
+    setIsLayerDropdownOpen(false)
+  }
+
+  const focusOnMyLocation = () => {
+    if (userLocation && map) {
+      map.panTo(userLocation)
+      map.setZoom(16)
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const newLocation = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }
+          setUserLocation(newLocation)
+          console.log(newLocation.lat, " ", newLocation.lng)
+          if (map) {
+            map.panTo(newLocation)
+            map.setZoom(16)
+          }
+        },
+        (error) => {
+          console.error("Error getting user location:", error)
+          // Fallback to default location
+          const defaultLocation = { lat: 19.0760, lng: 72.8777 }
+          if (map) {
+            map.panTo(defaultLocation)
+            map.setZoom(14)
+          }
+        },
+      )
+    }
+  }
+
+  if (!apiIsLoaded) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-[color:var(--gumo-bg)]">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="w-16 h-16 border-4 border-[color:var(--gumo-yellow)] border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-xl font-semibold text-[color:var(--gumo-text)] mb-2">Loading CityPulse Map...</h2>
+          <p className="text-sm text-[color:var(--gumo-muted)]">
+            Initializing map layers and real-time city data
+          </p>
+          <div className="mt-6 flex justify-center gap-2">
+            <div className="w-2 h-2 bg-[color:var(--gumo-yellow)] rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+            <div className="w-2 h-2 bg-[color:var(--gumo-yellow)] rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+            <div className="w-2 h-2 bg-[color:var(--gumo-yellow)] rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-screen w-screen relative overflow-hidden">
+      {/* Full-screen Google Map with dark theme */}
+      <Map
+        mapId="citypulse-demo-map"
+        defaultZoom={14}
+        defaultCenter={userLocation || { lat: 19.0760, lng: 72.8777 }}
+        gestureHandling="greedy"
+        disableDefaultUI={true}
+        className="h-full w-full"
+        colorScheme="DARK"
+        onCameraChanged={(event) => {
+          // Handle camera changes
+        }}
+      >
+        {/* User location marker */}
+        {userLocation && (
+          <AdvancedMarker
+            position={userLocation}
+            clickable={false}
+          >
+            <div className="flex flex-col items-center cursor-default transform transition-all duration-200">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 border-white bg-[color:var(--gumo-yellow)]">
+                <MapPin className="w-4 h-4 text-black" />
+              </div>
+              <div className="w-2 h-2 rotate-45 -mt-1 bg-[color:var(--gumo-yellow)]" />
+            </div>
+          </AdvancedMarker>
+        )}
+
+        {/* Layer markers */}
+        {allVisibleLocations.map((location) => (
+          <AdvancedMarker
+            key={location.id}
+            position={{ lat: location.latitude, lng: location.longitude }}
+            clickable={true}
+            onClick={() => {
+              setSelectedLocation(location)
+              setOpenInfoWindow(String(location.id) === openInfoWindow ? null : String(location.id))
+              if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                setDrawerOpen(true)
+              }
+            }}
+          >
+            <LayerMarker
+              location={location}
+              isSelected={selectedLocation?.id === location.id}
+              onClick={() => {
+                setSelectedLocation(location)
+                setOpenInfoWindow(String(location.id) === openInfoWindow ? null : String(location.id))
+                if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                  setDrawerOpen(true)
+                }
+              }}
+            />
+          </AdvancedMarker>
+        ))}
+
+        {/* Info windows for desktop */}
+        {openInfoWindow && selectedLocation && typeof window !== 'undefined' && window.innerWidth >= 768 && (
+          <InfoWindow
+            position={{ lat: selectedLocation.latitude, lng: selectedLocation.longitude }}
+            onCloseClick={() => setOpenInfoWindow(null)}
+          >
+            <MarkerInfoWindow 
+              location={selectedLocation} 
+              onDirectionsClick={calculateRoutes}
+              showDirections={true}
+            />
+          </InfoWindow>
+        )}
+      </Map>
+
+      {/* Search interface */}
+      <div className="absolute top-16 left-4 right-4 z-10">
+        <div className="mx-auto max-w-md space-y-4">
+          {/* Search bar */}
+          <div className="relative">
+            <input
+              type="text"
+              value={searchValue}
+              onChange={(e) => handleSearchInputChange(e.target.value)}
+              placeholder="Search locations, events, alerts..."
+              className="w-full px-4 py-3 pr-12 rounded-2xl bg-[color:var(--gumo-surface)]/90 backdrop-blur-sm border border-white/20 text-[color:var(--gumo-text)] placeholder-[color:var(--gumo-muted)] focus:outline-none focus:border-[color:var(--gumo-yellow)] shadow-lg"
+              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+              onBlur={() => {
+                // Delay hiding suggestions to allow for clicks
+                setTimeout(() => setShowSuggestions(false), 150)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  handleSearch()
+                }
+              }}
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+              {searchValue && (
+                <button onClick={handleClearSearch} className="text-[color:var(--gumo-muted)] hover:text-[color:var(--gumo-text)]">
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-[color:var(--gumo-yellow)] border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Search
+                  className="w-5 h-5 text-[color:var(--gumo-muted)] hover:text-[color:var(--gumo-yellow)] cursor-pointer"
+                  onClick={handleSearch}
+                />
+              )}
+            </div>
+
+            {/* Autocomplete Suggestions */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 max-h-60 overflow-y-auto bg-[color:var(--gumo-surface)]/95 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl z-50">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={suggestion.place_id}
+                    onClick={() => handlePlaceSelect(suggestion)}
+                    className="w-full px-4 py-3 text-left hover:bg-white/10 transition-colors border-b border-white/10 last:border-b-0 first:rounded-t-2xl last:rounded-b-2xl"
+                  >
+                    <div className="flex items-center gap-3">
+                      <MapPin className="w-4 h-4 text-[color:var(--gumo-yellow)] flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-[color:var(--gumo-text)] truncate">
+                          {suggestion.structured_formatting.main_text}
+                        </p>
+                        <p className="text-sm text-[color:var(--gumo-muted)] truncate">
+                          {suggestion.structured_formatting.secondary_text}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* My Location Button */}
+      <div className="absolute bottom-32 right-4 z-10 mb-16">
+        <button 
+          onClick={focusOnMyLocation}
+          className="w-12 h-12 bg-[color:var(--gumo-surface)]/90 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg border border-white/10 hover:bg-[color:var(--gumo-surface)] transition-colors"
+          title="Focus on my location"
+        >
+          <Navigation className="w-6 h-6 text-[color:var(--gumo-text)]" />
+        </button>
+      </div>
+
+      {/* Layer controls - Dropdown */}
+      <div className="absolute top-32 right-4 z-10">
+        <div className="bg-[color:var(--gumo-surface)]/90 backdrop-blur-sm rounded-2xl p-3 shadow-lg border border-white/10">
+          <div className="flex items-center gap-2 mb-2">
+            <Layers className="w-4 h-4 text-[color:var(--gumo-text)]" />
+            <span className="text-xs text-[color:var(--gumo-text)] font-medium">Layers</span>
+          </div>
+          
+          {/* Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setIsLayerDropdownOpen(!isLayerDropdownOpen)}
+              className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs transition-colors w-28 bg-[color:var(--gumo-yellow)] text-black hover:bg-[color:var(--gumo-yellow)]/90"
+            >
+              <span className="capitalize">{selectedLayer}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${isLayerDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {/* Dropdown Options */}
+            {isLayerDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-[color:var(--gumo-surface)] rounded-lg border border-white/10 shadow-lg overflow-hidden z-50">
+                {(['transport', 'incidents', 'events', 'places'] as LayerType[]).map((layer) => (
+                  <button
+                    key={layer}
+                    onClick={() => selectLayer(layer)}
+                    className={`flex items-center justify-between gap-2 px-3 py-2 text-xs transition-colors w-full hover:bg-white/10 ${
+                      selectedLayer === layer
+                        ? 'bg-[color:var(--gumo-yellow)] text-black'
+                        : 'text-[color:var(--gumo-text)]'
+                    }`}
+                  >
+                    <span className="capitalize">{layer}</span>
+                    {selectedLayer === layer && <div className="w-2 h-2 rounded-full bg-black" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Resizable Bottom Drawer */}
+      <ResizableDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        title={selectedLocation ? selectedLocation.name : "City Overview"}
+        minHeight={200}
+        maxHeight={600}
+        defaultHeight={400}
+      >
+        {selectedLocation ? (
+          <div className="space-y-4 pt-4">
+            <MarkerInfoWindow 
+              location={selectedLocation} 
+              onDirectionsClick={calculateRoutes}
+              showDirections={true}
+            />
+            
+            {/* Route Options Display with Travel Modes */}
+            {(showRoutes && routeOptions.length > 0) || routeError ? (
+              <div className="space-y-3">
+                {/* Travel Mode Selector */}
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-[color:var(--gumo-text)]">Route Options</h4>
+                  <button 
+                    onClick={clearRoutes}
+                    className="text-xs text-[color:var(--gumo-muted)] hover:text-[color:var(--gumo-text)] transition-colors"
+                  >
+                    Clear Routes
+                  </button>
+                </div>
+
+                {/* Travel Mode Options */}
+                <div className="flex gap-2 mb-3">
+                  {[
+                    { mode: 'DRIVING', icon: Car, label: 'Drive' },
+                    { mode: 'WALKING', icon: PersonStanding, label: 'Walk' },
+                    { mode: 'TRANSIT', icon: Bus, label: 'Transit' },
+                    { mode: 'BICYCLING', icon: Bike, label: 'Bike' }
+                  ].map(({ mode, icon: IconComponent, label }) => (
+                    <button
+                      key={mode}
+                      onClick={() => changeTravelMode(mode)}
+                      className={`flex-1 p-2 rounded-lg border transition-all text-xs ${
+                        selectedTravelMode === mode 
+                          ? 'border-[color:var(--gumo-yellow)] bg-[color:var(--gumo-yellow)]/10 text-[color:var(--gumo-text)]' 
+                          : 'border-white/10 hover:border-white/20 text-[color:var(--gumo-muted)]'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div className="flex justify-center mb-1">
+                          <IconComponent className="w-4 h-4" />
+                        </div>
+                        <div>{label}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Route Error Message */}
+                {routeError && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <div className="flex items-center gap-2 mb-1">
+                      <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                      <span className="text-sm font-medium text-red-400">Route Not Available</span>
+                    </div>
+                    <p className="text-xs text-red-300">{routeError}</p>
+                    <p className="text-xs text-red-300/70 mt-1">Try switching to a different travel mode.</p>
+                  </div>
+                )}
+                
+                {/* Route Options List */}
+                {showRoutes && routeOptions.length > 0 && (
+                <div className="space-y-2">
+                  {routeOptions.map((route, index) => {
+                    const leg = route.legs[0]
+                    const isSelected = index === selectedRouteIndex
+                    const routeColors = ['#F1C40F', '#3498DB', '#9B59B6', '#E74C3C', '#2ECC71']
+                    const routeColor = routeColors[index % routeColors.length]
+                    const optimizationLabel = getRouteOptimizationLabel(route, index, routeOptions, selectedTravelMode)
+                    
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => selectRoute(index)}
+                        className={`w-full p-3 rounded-lg border transition-all ${
+                          isSelected 
+                            ? 'border-[color:var(--gumo-yellow)] bg-[color:var(--gumo-yellow)]/10' 
+                            : 'border-white/10 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-white"
+                            style={{ backgroundColor: routeColor }}
+                          >
+                            {React.createElement(getTravelModeIcon(selectedTravelMode), { 
+                              className: "w-4 h-4" 
+                            })}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <div className="flex items-center justify-between mb-1">
+                              {optimizationLabel && (
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                  index === 0 
+                                    ? 'bg-[color:var(--gumo-yellow)]/20 text-[color:var(--gumo-yellow)]' 
+                                    : 'bg-white/10 text-[color:var(--gumo-muted)]'
+                                }`}>
+                                  {optimizationLabel}
+                                </span>
+                              )}
+                              {isSelected && (
+                                <div className="w-2 h-2 rounded-full bg-[color:var(--gumo-yellow)]" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 text-xs">
+                              <div className="flex items-center gap-1 text-[color:var(--gumo-text)]">
+                                <Clock className="w-3 h-3" />
+                                {/* Show traffic-aware time for driving, regular duration for others */}
+                                <span>
+                                  {(leg.duration_in_traffic && selectedTravelMode === 'DRIVING') 
+                                    ? leg.duration_in_traffic.text 
+                                    : leg.duration?.text}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 text-[color:var(--gumo-muted)]">
+                                <MapPin className="w-3 h-3" />
+                                <span>{leg.distance?.text}</span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-[color:var(--gumo-muted)] mt-1">
+                              via {route.summary}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+                )}
+
+                {/* Selected Route Details */}
+                {routeOptions[selectedRouteIndex] && (
+                  <div className="p-3 bg-[color:var(--gumo-bg)] rounded-lg border border-white/10">
+                    <div className="flex items-center gap-2 mb-2">
+                      {React.createElement(getTravelModeIcon(selectedTravelMode), { 
+                        className: "w-4 h-4 text-[color:var(--gumo-yellow)]" 
+                      })}
+                      <h5 className="text-sm font-medium text-[color:var(--gumo-text)]">
+                        {selectedTravelMode === 'DRIVING' && 'Driving Route Details'}
+                        {selectedTravelMode === 'WALKING' && 'Walking Route Details'}
+                        {selectedTravelMode === 'BICYCLING' && 'Cycling Route Details'}
+                        {selectedTravelMode === 'TRANSIT' && 'Transit Route Details'}
+                      </h5>
+                    </div>
+                    <div className="text-xs text-[color:var(--gumo-muted)] space-y-1">
+                      <p>Via: {routeOptions[selectedRouteIndex].summary}</p>
+                      {selectedTravelMode === 'DRIVING' && (
+                        <p>🚗 Car route with traffic considerations</p>
+                      )}
+                      {selectedTravelMode === 'WALKING' && (
+                        <p>🚶 Walking route on pedestrian paths</p>
+                      )}
+                      {selectedTravelMode === 'BICYCLING' && (
+                        <p>🚴 Cycling route on bike-friendly roads</p>
+                      )}
+                      {selectedTravelMode === 'TRANSIT' && (
+                        <p>🚌 Public transport with transfers</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <div className="space-y-4 pt-4">
+            {/* Active Alerts */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-[color:var(--gumo-text)]">Active Alerts</h3>
+              {DEMO_DATA.incidents.slice(0, 2).map((incident) => (
+                <div key={incident.id} className="flex items-start gap-3 p-3 bg-[color:var(--gumo-bg)] rounded-xl">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    incident.severity === 'high' ? 'bg-red-500' : 'bg-yellow-500'
+                  }`}>
+                    <AlertTriangle className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-[color:var(--gumo-text)]">{incident.name}</p>
+                    <p className="text-xs text-[color:var(--gumo-muted)] mt-1">{incident.description}</p>
+                    <p className="text-xs text-[color:var(--gumo-muted)] mt-1">{incident.source} • {incident.timestamp}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Nearby Events */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-[color:var(--gumo-text)]">Nearby Events</h3>
+              {DEMO_DATA.events.map((event) => (
+                <div key={event.id} className="flex items-start gap-3 p-3 bg-[color:var(--gumo-bg)] rounded-xl">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
+                    {event.category === 'music' ? <Music className="w-4 h-4 text-white" /> : <Calendar className="w-4 h-4 text-white" />}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-[color:var(--gumo-text)]">{event.name}</p>
+                    <p className="text-xs text-[color:var(--gumo-muted)] mt-1">{event.description}</p>
+                    <p className="text-xs text-[color:var(--gumo-muted)] mt-1">{event.startTime} - {event.endTime}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </ResizableDrawer>
+    </div>
+  )
+}

@@ -3,7 +3,7 @@
 import type React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Globe2, Smile, User2 } from "lucide-react"
+import { Globe2, Smile, User2, Map } from "lucide-react"
 
 function NavBtn({
   active,
@@ -40,6 +40,9 @@ export function BottomNav() {
       </NavBtn>
       <NavBtn href="/explore" active={pathname?.startsWith("/explore")} label="Discover">
         <Globe2 className="size-6" aria-hidden />
+      </NavBtn>
+      <NavBtn href="/maps" active={pathname?.startsWith("/maps")} label="Maps">
+        <Map className="size-6" aria-hidden />
       </NavBtn>
       <NavBtn href="/profile" active={pathname?.startsWith("/profile")} label="Profile">
         <User2 className="size-6" aria-hidden />
