@@ -4,16 +4,21 @@ import { TopBar } from "@/components/gumo/top-bar"
 import { SuggestionCard } from "@/components/gumo/suggestion-card"
 import { BottomNav } from "@/components/gumo/bottom-nav"
 import { ChatInput } from "@/components/gumo/chat-input"
+import { ChatHistory } from "@/components/gumo/chat-history"
 import PlannerForm from "@/components/planner/planner-form"
 import TrafficInsights from "@/components/gumo/traffic-insights"
 import EventsList from "@/components/gumo/events-list"
 import FoodList from "@/components/gumo/food-list"
 import ExploreGrid from "@/components/gumo/explore-grid"
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { chatHistoryDB, generateSessionId, generateSessionTitle, type ChatSession } from "@/lib/chat-history"
 
 export default function Page() {
   const [isProcessing, setIsProcessing] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([])
 
   type ChatMessage =
     | { id: string; role: 'user'; type: 'text'; text: string }
@@ -27,8 +32,74 @@ export default function Page() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const router = useRouter()
 
+  // Save current session to IndexedDB
+  const saveCurrentSession = useCallback(async (updatedMessages?: ChatMessage[]) => {
+    if (!currentSessionId) return
+
+    const messagesToSave = updatedMessages || messages
+    if (messagesToSave.length === 0) return
+
+    const session: ChatSession = {
+      id: currentSessionId,
+      title: generateSessionTitle(messagesToSave),
+      messages: messagesToSave,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+
+    await chatHistoryDB.saveSession(session)
+  }, [currentSessionId, messages])
+
+  // Load chat sessions on mount
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        const sessions = await chatHistoryDB.getAllSessions()
+        setChatSessions(sessions)
+      } catch (error) {
+        console.error('Failed to load chat sessions:', error)
+      }
+    }
+
+    loadSessions()
+  }, [])
+
+  // Save messages whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      saveCurrentSession(messages)
+    }
+  }, [messages, saveCurrentSession])
+
+  // Start new chat session
+  const startNewChat = useCallback(() => {
+    setCurrentSessionId(generateSessionId())
+    setMessages([])
+    setShowHistory(false)
+  }, [])
+
+  // Load existing chat session
+  const loadChatSession = useCallback(async (sessionId: string) => {
+    try {
+      const session = await chatHistoryDB.getSession(sessionId)
+      if (session) {
+        setCurrentSessionId(sessionId)
+        setMessages(session.messages)
+        setShowHistory(false)
+      }
+    } catch (error) {
+      console.error('Failed to load chat session:', error)
+    }
+  }, [])
+
   async function handleQuery(query: string) {
     setIsProcessing(true)
+
+    // Initialize new session if none exists
+    if (!currentSessionId) {
+      setCurrentSessionId(generateSessionId())
+    }
+
     // Immediately show the user's message in the thread
     setMessages((prev) => [
       ...prev,
@@ -150,7 +221,21 @@ export default function Page() {
         className="hidden"
       />
 
-      <TopBar />
+      <TopBar
+        onShowHistory={() => setShowHistory(true)}
+        onNewChat={startNewChat}
+      />
+
+      {showHistory && (
+        <ChatHistory
+          sessions={chatSessions}
+          onSelectSession={loadChatSession}
+          onClose={() => setShowHistory(false)}
+          onDeleteSession={(sessionId) => {
+            setChatSessions(prev => prev.filter(s => s.id !== sessionId))
+          }}
+        />
+      )}
 
       <section className="mt-6 space-y-4">
         {messages.length === 0 ? (
@@ -199,8 +284,8 @@ export default function Page() {
           <div className="space-y-4">
             {messages.map((m) => (
               <div key={m.id} className={`${['planner', 'traffic', 'events', 'food', 'explore'].includes(m.type)
-                  ? 'w-full' // Full width for special UI components
-                  : `rounded-2xl p-3 ${m.role === 'user' ? 'bg-white/5 ml-12' : 'bg-white/10 mr-12'}`
+                ? 'w-full' // Full width for special UI components
+                : `rounded-2xl p-3 ${m.role === 'user' ? 'bg-white/5 ml-12' : 'bg-white/10 mr-12'}`
                 }`}>
                 {m.type === 'text' && <p className="text-sm text-white/90">{m.text}</p>}
                 {m.type === 'planner' && (
