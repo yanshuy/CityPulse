@@ -84,7 +84,7 @@ const Page = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "black" }}>
+    <div className="min-h-screen pb-28" style={{ backgroundColor: "black" }}>
       <div className="container mx-auto max-w-md">
         {/* Header */}
         <div className="flex items-center p-4 bg-black justify-between mb-6">

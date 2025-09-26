@@ -12,14 +12,27 @@ import {
   Train,
   Car,
   X,
+  Sun,
+  Moon,
+  Cloud,
+  CloudDrizzle,
+  CloudLightning,
+  Snowflake,
+  CloudFog,
+  CloudSun,
+  CloudMoon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { getAddressFromCoordinates } from "@/lib/utils";
 
 interface WeatherData {
   temp: number;
   condition: string;
-  icon: string;
+  icon: React.ElementType;
+  humidity: number;
+  windSpeed: number;
+  feelsLike: number;
 }
 
 interface Goal {
@@ -46,13 +59,95 @@ interface Suggestion {
 
 const Page = () => {
   const router = useRouter();
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const [currentLocation] = useState("Downtown Mumbai");
-  const [weather] = useState<WeatherData>({
-    temp: 28,
-    condition: "Partly Cloudy",
-    icon: "⛅",
+  const [currentLocation, setCurrentLocation] = useState("Getting location...");
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const coords = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          };
+          setCoordinates(coords);
+          try {
+            const address = await getAddressFromCoordinates(coords.lat, coords.lng);
+            setCurrentLocation(address);
+          } catch (error) {
+            console.error("Error getting address:", error);
+            setCurrentLocation("Address not found");
+          }
+        },
+        (error) => {
+          console.error("Error getting location:", error);
+          setCurrentLocation("Location unavailable");
+        }
+      );
+    } else {
+      setCurrentLocation("Geolocation not supported");
+    }
+  }, []);
+  const [weather, setWeather] = useState<WeatherData>({
+    temp: 0,
+    condition: "Loading...",
+    icon: Cloud,
+    humidity: 0,
+    windSpeed: 0,
+    feelsLike: 0
   });
+
+  // Fetch weather data when coordinates change
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!coordinates) return;
+      
+      try {
+        const response = await fetch(
+          `https://api.openweathermap.org/data/2.5/weather?lat=${coordinates.lat}&lon=${coordinates.lng}&appid=${process.env.NEXT_PUBLIC_WEATHER_API_KEY}&units=metric`
+        );
+        const data = await response.json();
+        
+        setWeather({
+          temp: Math.round(data.main.temp),
+          condition: data.weather[0].main,
+          icon: getWeatherIcon(data.weather[0].icon),
+          humidity: data.main.humidity,
+          windSpeed: Math.round(data.wind.speed),
+          feelsLike: Math.round(data.main.feels_like)
+        });
+      } catch (error) {
+        console.error('Error fetching weather:', error);
+      }
+    };
+
+    fetchWeather();
+  }, [coordinates]);
+
+  // Helper function to convert weather codes to Lucide React icons
+  const getWeatherIcon = (code: string): React.ElementType => {
+    const iconMap: { [key: string]: React.ElementType } = {
+      '01d': Sun, // clear sky day
+      '01n': Moon, // clear sky night
+      '02d': CloudSun, // few clouds day
+      '02n': CloudMoon, // few clouds night
+      '03d': Cloud, // scattered clouds
+      '03n': Cloud, // scattered clouds
+      '04d': Cloud, // broken clouds
+      '04n': Cloud, // broken clouds
+      '09d': CloudDrizzle, // shower rain
+      '09n': CloudDrizzle, // shower rain
+      '10d': CloudRain, // rain day
+      '10n': CloudRain, // rain night
+      '11d': CloudLightning, // thunderstorm
+      '11n': CloudLightning, // thunderstorm
+      '13d': Snowflake, // snow
+      '13n': Snowflake, // snow
+      '50d': CloudFog, // mist
+      '50n': CloudFog, // mist
+    };
+    return iconMap[code] || Cloud;
+  };
 
   const [activeGoal] = useState<Goal>({
     destination: "Bandra Office",
@@ -177,11 +272,6 @@ const Page = () => {
     );
   };
 
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case "on-time":
@@ -212,27 +302,29 @@ const Page = () => {
     <div className="min-h-screen pb-20 bg-gumo-bg text-gumo-text px-4 py-6 max-w-md mx-auto">
       {/* Top Bar */}
       <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-[color:var(--gumo-yellow)]" />
-          <span className="text-sm text-gumo-muted">{currentLocation}</span>
+        <div className="flex items-center gap-1">
+          <MapPin className="h-6 w-6 text-[color:var(--gumo-yellow)]" />
+          <span className="text-md text-gumo-muted">{currentLocation}</span>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 text-sm">
-            <span>{weather.icon}</span>
-            <span className="text-gumo-text">{weather.temp}°C</span>
-          </div>
-          <div className="flex items-center gap-1 text-sm text-gumo-muted">
-            <Clock className="h-3 w-3 text-[color:var(--gumo-yellow)]" />
-            <span>
-              {currentTime.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
+          <div className="flex flex-col items-end">
+            <div className="flex items-center gap-1">
+              {React.createElement(weather.icon as React.ElementType, {
+                className: "h-6 w-6 text-[color:var(--gumo-yellow)]"
               })}
-            </span>
+              <span className="text-xl font-semibold text-gumo-text">{weather.temp}°C</span>
+            </div>
+            <div className="text-xs text-gumo-muted flex items-center gap-2">
+              <span>Feels like {weather.feelsLike}°C</span>
+              <span>•</span>
+              <span>{weather.condition}</span>
+            </div>
           </div>
         </div>
       </div>
+
+
 
       {/* Active Goal Card */}
       <Card className="gumo-card p-4 mb-6">
