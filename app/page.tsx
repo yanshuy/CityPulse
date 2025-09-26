@@ -409,41 +409,39 @@ export default function Page() {
         ) : (
           <div className="space-y-4">
             {messages.map((m) => (
-              <div
-                key={m.id}
-                className={`${["planner", "traffic", "events", "food", "explore"].includes(m.type)
-                    ? "w-full" // Full width for special UI components
-                    : `rounded-2xl p-3 ${m.role === "user" ? "bg-white/5 ml-12" : "bg-white/10 mr-12"}`
-                  }`}
-              >
-                {m.type === "text" && <p className="text-sm text-white/90">{m.text}</p>}
+              <div key={m.id}>
+                {m.type === "text" && (
+                  <div className={`rounded-2xl p-3 ${m.role === "user" ? "bg-white/5 ml-12" : "bg-white/10 mr-12"}`}>
+                    <p className="text-sm text-white/90">{m.text}</p>
+                  </div>
+                )}
                 {m.type === "planner" && (
-                  <div className="mt-2">
+                  <div className="mb-6">
                     <PlannerForm data={m.payload} />
                   </div>
                 )}
                 {m.type === "traffic" && (
-                  <div className="mt-2">
+                  <div className="mb-6">
                     <TrafficInsights data={m.payload} />
                   </div>
                 )}
                 {m.type === "events" && (
-                  <div className="mt-2">
+                  <div className="mb-6">
                     <EventsList data={m.payload} />
                   </div>
                 )}
                 {m.type === "food" && (
-                  <div className="mt-2">
+                  <div className="mb-6">
                     <FoodList data={m.payload} />
                   </div>
                 )}
                 {m.type === "explore" && (
-                  <div className="mt-2">
+                  <div className="mb-6">
                     <ExploreGrid data={m.payload} />
                   </div>
                 )}
                 {m.type === "summary" && (
-                  <div className="mt-2">
+                  <div className="mb-6">
                     <ItinerarySummaryCardV2
                       title={m.payload.title}
                       blurb={m.payload.blurb}

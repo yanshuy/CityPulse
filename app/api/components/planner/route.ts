@@ -29,7 +29,7 @@ export async function POST(req: Request) {
         }
 
         const { object } = await generateObject({
-            model: google('gemini-1.5-flash-latest'),
+            model: google('gemini-2.0-flash'),
             schema: PlannerDataSchema,
             prompt: `
         Extract detailed itinerary planning information from this query: "${query}"

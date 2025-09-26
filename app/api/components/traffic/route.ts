@@ -31,7 +31,7 @@ export async function POST(req: Request) {
         const { query } = await req.json()
 
         const { object } = await generateObject({
-            model: google('gemini-1.5-flash-latest'),
+            model: google('gemini-2.0-flash'),
             schema: TrafficDataSchema,
             prompt: `
         Generate realistic traffic information for this query: "${query}"
