@@ -3,11 +3,12 @@
 import Image from "next/image"
 import { useState } from "react"
 import { BottomNav } from "@/components/gumo/bottom-nav"
-import { Heart, Grid2X2, Bookmark } from "lucide-react"
+import { Heart, Grid2X2, Bookmark, Settings } from "lucide-react"
+import NotificationSettings from "@/components/notifications/notification-settings"
 
 export default function ProfilePage() {
   const [following, setFollowing] = useState(false)
-  const [tab, setTab] = useState<"posts" | "liked" | "bucket">("posts")
+  const [tab, setTab] = useState<"posts" | "liked" | "bucket" | "settings">("posts")
 
   return (
     <main className="mx-auto max-w-md min-h-dvh">
@@ -85,26 +86,45 @@ export default function ProfilePage() {
           >
             <Bookmark className="size-4" /> Bucket List
           </button>
+          <button
+            onClick={() => setTab("settings")}
+            className={[
+              "pb-3 inline-flex items-center gap-2",
+              tab === "settings" ? "text-[color:var(--gumo-yellow)]" : "text-white/70",
+            ].join(" ")}
+          >
+            <Settings className="size-4" /> Settings
+          </button>
         </div>
 
         {/* Content */}
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="gumo-card overflow-hidden">
-              <Image
-                src={`/travel-post-.jpg?height=400&width=600&query=travel-post-${i + 1}`}
-                alt=""
-                width={600}
-                height={400}
-                className="h-36 w-full object-cover"
-              />
-              <div className="p-2">
-                <p className="text-sm text-white/90">Madgaon, Goa</p>
-              </div>
+        {tab === "settings" ? (
+          <div className="mt-4 space-y-4">
+            <div className="gumo-card p-4">
+              <h2 className="text-lg font-semibold text-white mb-4">Notification Settings</h2>
+              <NotificationSettings />
             </div>
-          ))}
-        </div>
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="gumo-card overflow-hidden">
+                <Image
+                  src={`/travel-post-.jpg?height=400&width=600&query=travel-post-${i + 1}`}
+                  alt=""
+                  width={600}
+                  height={400}
+                  className="h-36 w-full object-cover"
+                />
+                <div className="p-2">
+                  <p className="text-sm text-white/90">Madgaon, Goa</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
     </main>
   )
 }

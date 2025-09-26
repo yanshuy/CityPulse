@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="6.4" fill="#facc15"/>
+  <rect x="4" y="4" width="24" height="24" rx="3.2" fill="#000000"/>
+  <circle cx="11.2" cy="12.8" r="1.6" fill="#facc15"/>
+  <circle cx="16" cy="10.24" r="1.28" fill="#facc15"/>
+  <circle cx="20.8" cy="13.76" r="1.12" fill="#facc15"/>
+  <path d="M9.6 19.2 Q12.8 16 16 17.6 Q19.2 19.2 22.4 16.96" stroke="#facc15" stroke-width="0.48" fill="none" stroke-linecap="round"/>
+  <rect x="8.64" y="21.44" width="14.72" height="3.84" rx="1.92" fill="#facc15"/>
+  <text x="16" y="23.84" text-anchor="middle" fill="#000000" font-family="Arial" font-weight="bold" font-size="1.472">CityPulse</text>
+</svg>

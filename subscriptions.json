@@ -1,0 +1,10 @@
+[
+  {
+    "userId": "test-user-cli",
+    "endpoint": "https://mock-push-service.googleapis.com/test-endpoint",
+    "keys": {
+      "p256dh": "mock-key-p256dh",
+      "auth": "mock-key-auth"
+    }
+  }
+]
