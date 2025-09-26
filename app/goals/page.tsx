@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, X, MapPin, Clock, Car } from "lucide-react";
+import { ArrowLeft, Plus, X, MapPin, Clock, Car, Train, Bus, Bike, Navigation2 } from "lucide-react";
 
 interface Goal {
   id: string;
@@ -16,15 +16,20 @@ interface Goal {
   Transport: string[];
 }
 
-const transportOptions = [
-  "Train",
-  "Metro",
-  "Bus",
-  "Auto",
-  "Taxi",
-  "Car",
-  "Bike",
-  "Walk",
+interface TransportOption {
+  name: string;
+  icon: React.ElementType;
+}
+
+const transportOptions: TransportOption[] = [
+  { name: "Train", icon: Train },
+  { name: "Metro", icon: Train },
+  { name: "Bus", icon: Bus },
+  { name: "Auto", icon: Car },
+  { name: "Taxi", icon: Car },
+  { name: "Car", icon: Car },
+  { name: "Bike", icon: Bike },
+  { name: "Walk", icon: Navigation2 },
 ];
 
 const Page = () => {
@@ -36,19 +41,19 @@ const Page = () => {
     Transport: [],
   });
 
-  const addTransport = (transport: string) => {
-    if (!currentGoal.Transport?.includes(transport)) {
-      setCurrentGoal((prev) => ({
+  const addTransport = (transport: TransportOption) => {
+    if (!currentGoal.Transport?.includes(transport.name)) {
+      setCurrentGoal((prev: Partial<Goal>) => ({
         ...prev,
-        Transport: [...(prev.Transport || []), transport],
+        Transport: [...(prev.Transport || []), transport.name],
       }));
     }
   };
 
-  const removeTransport = (transport: string) => {
-    setCurrentGoal((prev) => ({
+  const removeTransport = (transportName: string) => {
+    setCurrentGoal((prev: Partial<Goal>) => ({
       ...prev,
-      Transport: prev.Transport?.filter((t) => t !== transport) || [],
+      Transport: prev.Transport?.filter((t: string) => t !== transportName) || [],
     }));
   };
 
@@ -79,10 +84,10 @@ const Page = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "var(--gumo-bg)" }}>
-      <div className="container mx-auto p-4 max-w-md">
+    <div className="min-h-screen" style={{ backgroundColor: "black" }}>
+      <div className="container mx-auto max-w-md">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center p-4 bg-black justify-between mb-6">
           <Button
             variant="ghost"
             size="sm"
@@ -114,7 +119,7 @@ const Page = () => {
         <Card
           className="mb-6"
           style={{
-            backgroundColor: "var(--gumo-surface)",
+            backgroundColor: "black",
             borderColor: "var(--gumo-navy)",
           }}
         >
@@ -143,8 +148,8 @@ const Page = () => {
                 <Input
                   id="destination"
                   value={currentGoal.destination || ""}
-                  onChange={(e) =>
-                    setCurrentGoal((prev) => ({
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setCurrentGoal((prev: Partial<Goal>) => ({
                       ...prev,
                       destination: e.target.value,
                     }))
@@ -152,7 +157,7 @@ const Page = () => {
                   placeholder="Enter destination"
                   className="pl-10"
                   style={{
-                    backgroundColor: "var(--gumo-bg)",
+                    backgroundColor: "var(--gumo-surface)",
                     borderColor: "var(--gumo-navy)",
                     color: "var(--gumo-text)",
                   }}
@@ -173,15 +178,15 @@ const Page = () => {
                   id="time"
                   type="time"
                   value={currentGoal.Time || ""}
-                  onChange={(e) =>
-                    setCurrentGoal((prev) => ({
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setCurrentGoal((prev: Partial<Goal>) => ({
                       ...prev,
                       Time: e.target.value,
                     }))
                   }
                   className="pl-10"
                   style={{
-                    backgroundColor: "var(--gumo-bg)",
+                    backgroundColor: "var(--gumo-surface)",
                     borderColor: "var(--gumo-navy)",
                     color: "var(--gumo-text)",
                   }}
@@ -201,19 +206,21 @@ const Page = () => {
                     size="sm"
                     onClick={() => addTransport(transport)}
                     className={`${
-                      currentGoal.Transport?.includes(transport)
+                      currentGoal.Transport?.includes(transport.name)
                         ? "opacity-50 cursor-not-allowed"
                         : ""
                     }`}
-                    disabled={currentGoal.Transport?.includes(transport)}
+                    disabled={currentGoal.Transport?.includes(transport.name)}
                     style={{
                       borderColor: "var(--gumo-navy)",
                       color: "var(--gumo-text)",
                       backgroundColor: "transparent",
                     }}
                   >
-                    <Car className="h-3 w-3 mr-1" />
-                    {transport}
+                    {React.createElement(transport.icon, {
+                      className: "h-3 w-3 mr-1",
+                    })}
+                    {transport.name}
                   </Button>
                 ))}
               </div>
@@ -268,11 +275,11 @@ const Page = () => {
             >
               Your Goals ({goals.length})
             </h2>
-            {goals.map((goal) => (
+            {goals.map((goal: Goal) => (
               <Card
                 key={goal.id}
                 style={{
-                  backgroundColor: "var(--gumo-surface)",
+                  backgroundColor: "black",
                   borderColor: "var(--gumo-navy)",
                 }}
               >
