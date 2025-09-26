@@ -21,23 +21,23 @@ interface ItineraryMapViewProps {
   itinerary: Itinerary
 }
 
-const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
 // Sample itinerary data structure - in production this would come from the itinerary prop
 const generateSampleItinerary = (itinerary: Itinerary): DayPlan[] => {
   const days: DayPlan[] = []
   const startDate = new Date()
-  
+
   itinerary.destinations.forEach((dest, destIndex) => {
     for (let dayNum = 1; dayNum <= dest.days; dayNum++) {
       const currentDate = new Date(startDate)
       currentDate.setDate(startDate.getDate() + days.length)
-      
+
       days.push({
         day: days.length + 1,
-        date: currentDate.toLocaleDateString('en-US', { 
-          month: 'short', 
-          day: 'numeric' 
+        date: currentDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
         }),
         destinations: [
           {
@@ -45,9 +45,9 @@ const generateSampleItinerary = (itinerary: Itinerary): DayPlan[] => {
             location: `${dest.city} City Center`,
             duration: '3 hr 5 min',
             description: 'Explore the rich cultural heritage',
-            coordinates: { 
-              lat: 28.6139 + (destIndex * 0.1), 
-              lng: 77.2090 + (destIndex * 0.1) 
+            coordinates: {
+              lat: 28.6139 + (destIndex * 0.1),
+              lng: 77.2090 + (destIndex * 0.1)
             }
           },
           {
@@ -55,9 +55,9 @@ const generateSampleItinerary = (itinerary: Itinerary): DayPlan[] => {
             location: `Old ${dest.city}`,
             duration: '2 hr 30 min',
             description: 'Visit the ancient temple complex',
-            coordinates: { 
-              lat: 28.6239 + (destIndex * 0.1), 
-              lng: 77.2190 + (destIndex * 0.1) 
+            coordinates: {
+              lat: 28.6239 + (destIndex * 0.1),
+              lng: 77.2190 + (destIndex * 0.1)
             }
           },
           {
@@ -65,16 +65,16 @@ const generateSampleItinerary = (itinerary: Itinerary): DayPlan[] => {
             location: `${dest.city} Bazaar`,
             duration: '1 hr 45 min',
             description: 'Shop for local crafts and souvenirs',
-            coordinates: { 
-              lat: 28.6339 + (destIndex * 0.1), 
-              lng: 77.2290 + (destIndex * 0.1) 
+            coordinates: {
+              lat: 28.6339 + (destIndex * 0.1),
+              lng: 77.2290 + (destIndex * 0.1)
             }
           }
         ]
       })
     }
   })
-  
+
   return days
 }
 
@@ -122,7 +122,7 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
         }
       })
       directionsRendererRef.current.setMap(map)
-      
+
       setIsMapLoaded(true)
     }
 
@@ -157,7 +157,7 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
         map: googleMapRef.current!,
         title: destination.name,
         icon: {
-          url: index === selectedDestination 
+          url: index === selectedDestination
             ? 'data:image/svg+xml;base64,' + btoa(`
               <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="16" cy="16" r="12" fill="#FACC15"/>
@@ -269,7 +269,7 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
               <p className="text-sm text-gray-600">{itinerary.description}</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <button className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
               List View
@@ -288,11 +288,10 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
             <button
               key={index}
               onClick={() => handleDaySelect(index)}
-              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedDay === index
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${selectedDay === index
                   ? 'bg-yellow-400 text-black'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+                }`}
             >
               {dayPlan.date}
             </button>
@@ -303,8 +302,8 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
       {/* Map and drawer container */}
       <div className="flex-1 relative">
         {/* Google Map Container */}
-        <div 
-          ref={mapRef} 
+        <div
+          ref={mapRef}
           className="w-full h-full"
           style={{ minHeight: '400px' }}
         />
@@ -313,7 +312,7 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
         <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 rounded-t-3xl">
           {/* Drawer handle */}
           <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-4"></div>
-          
+
           {currentDestination && (
             <div className="px-4 pb-6">
               {/* Destination counter and navigation */}
@@ -326,14 +325,13 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
                     {currentDayPlan.destinations.map((_, index) => (
                       <div
                         key={index}
-                        className={`w-2 h-2 rounded-full ${
-                          index === selectedDestination ? 'bg-yellow-400' : 'bg-gray-200'
-                        }`}
+                        className={`w-2 h-2 rounded-full ${index === selectedDestination ? 'bg-yellow-400' : 'bg-gray-200'
+                          }`}
                       />
                     ))}
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handlePrevDestination}
@@ -363,7 +361,7 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
                     <div className="w-16 h-16 bg-gray-300 rounded-xl flex-shrink-0 flex items-center justify-center">
                       <MapPin className="w-8 h-8 text-gray-600" />
                     </div>
-                    
+
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold mb-1">{currentDestination.name}</h3>
                       <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
@@ -384,7 +382,7 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
 
                   {/* Action buttons */}
                   <div className="flex gap-3 mt-4">
-                    <button 
+                    <button
                       className="flex-1 bg-yellow-400 text-black font-medium py-3 px-4 rounded-xl hover:bg-yellow-500 transition-colors flex items-center justify-center gap-2"
                       onClick={() => {
                         const coords = currentDestination.coordinates
@@ -397,7 +395,7 @@ export default function ItineraryMapView({ itinerary }: ItineraryMapViewProps) {
                       <Navigation className="w-4 h-4" />
                       Open in Google Maps
                     </button>
-                    <button 
+                    <button
                       className="flex-1 bg-green-500 text-white font-medium py-3 px-4 rounded-xl hover:bg-green-600 transition-colors"
                       onClick={() => {
                         const message = `Check out this amazing place: ${currentDestination.name} at ${currentDestination.location}`

@@ -4,30 +4,7 @@ import type React from "react"
 
 import { useRouter } from "next/navigation"
 import { SaveItineraryButton } from "@/components/itinerary/save-itinerary-button"
-
-type PlannerData = {
-  destination: string
-  days: number
-  suggestedTitle: string
-  description: string
-  highlights: string[]
-  bestTimeToVisit: string
-  estimatedBudget: string
-  suggestedActivities: Array<{
-    day: number
-    activity: string
-    location: string
-    duration: string
-  }>
-}
-
-interface PlannerFormProps {
-  data?: PlannerData
-  // Legacy props for backward compatibility
-  destination?: string
-  days?: number
-  query?: string
-}
+import { PlannerFormProps } from "@/lib/types/component-schemas"
 
 type Destination = {
   id: string
@@ -45,10 +22,10 @@ function SectionCard({ children }: { children: React.ReactNode }) {
   return <section className="rounded-2xl border border-white/5 bg-background/40 p-4 shadow-sm">{children}</section>
 }
 
-export default function PlannerForm({ data, destination = "", days = 3, query = "" }: PlannerFormProps = {}) {
-  // Use data from AI if available, otherwise fall back to legacy props
-  const finalDestination = data?.destination || destination
-  const finalDays = data?.days || days
+export default function PlannerForm({ data }: PlannerFormProps) {
+  // Use data from AI directly
+  const finalDestination = data.destination
+  const finalDays = data.days
   const router = useRouter()
 
   const prefilled = useMemo(() => {
@@ -64,7 +41,7 @@ export default function PlannerForm({ data, destination = "", days = 3, query = 
           city: prefilled.locs[0],
           days: prefilled.days ?? 3,
           includeHotels: true,
-          places: data?.highlights || [],
+          places: data.highlights,
         },
       ]
       : [
@@ -94,41 +71,92 @@ export default function PlannerForm({ data, destination = "", days = 3, query = 
     setNewCity("")
   }
 
-  function onNext() {
-    // Build query params for itinerary page
-    const params = new URLSearchParams()
-    params.set("plan", encodeURIComponent(JSON.stringify(destinations.map((d) => ({ city: d.city, days: d.days })))))
-
-    // Prepare summary payload
+  async function onNext() {
     const first = destinations[0]
-    const title = `Trip to ${first?.city || "your destination"} (v1)`
-    const blurb =
-      `Immerse yourself in ${first?.city || "this destination"} over ${first?.days || 3} ` +
-      `${(first?.days || 3) === 1 ? "day" : "days"}, with curated highlights and flexible pacing.`
-    const bullets = (
-      first?.places?.length ? first?.places : ["Top museum", "Great local restaurant", "Waterfront walk"]
-    ).slice(0, 3)
 
-    const href = `/itinerary?${params.toString()}`
-    const imageSrc = "/images/reference/itinerary-summary-user.png"
+    if (!first?.city) {
+      alert('Please select a destination first')
+      return
+    }
 
-    // Fire event so the chat can append the card inline
+    // Show loading state
     if (typeof window !== "undefined") {
       window.dispatchEvent(
-        new CustomEvent("gumo:add-itinerary-summary", {
-          detail: { title, blurb, bullets, href, imageSrc },
+        new CustomEvent("gumo:itinerary-generating", {
+          detail: {
+            message: `Generating your ${first.days}-day itinerary for ${first.city}...`
+          },
         }),
       )
     }
 
-    // Do NOT navigate; keep user in chat
-    // router.push(`/planner/results?${params.toString()}`)
+    try {
+      // Generate AI itinerary
+      const response = await fetch('/api/generate-itinerary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          destination: first.city,
+          days: first.days,
+          preferences: first.places.join(', ') || data.highlights.join(', '),
+          budget: data.estimatedBudget
+        })
+      })
+
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate itinerary')
+      }
+
+      const itinerary = result.data
+
+      // Build URL with generated itinerary
+      const params = new URLSearchParams()
+      params.set("itinerary", encodeURIComponent(JSON.stringify(itinerary)))
+
+      const href = `/itinerary?${params.toString()}`
+
+      // Fire event with generated itinerary data
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("gumo:add-itinerary-summary", {
+            detail: {
+              title: itinerary.title,
+              blurb: itinerary.overview,
+              bullets: itinerary.days[0]?.items.slice(0, 3).map(item => item.name) || itinerary.generalTips.slice(0, 3),
+              href,
+              imageSrc: "/images/reference/itinerary-summary-user.png",
+              itinerary // Include full itinerary data
+            },
+          }),
+        )
+      }
+
+    } catch (error) {
+      console.error('Failed to generate itinerary:', error)
+
+      // Show error state
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("gumo:itinerary-error", {
+            detail: {
+              error: error instanceof Error ? error.message : 'Failed to generate itinerary'
+            },
+          }),
+        )
+      }
+    }
   }
 
   return (
     <div className="mx-auto w-full max-w-md space-y-6">
       <div className="flex flex-wrap gap-2">
-        <span className={`${pill} border border-white/10 text-xs text-foreground/80`}>2-3 days (highlights)</span>
+        <span className={`${pill} border border-white/10 text-xs text-foreground/80`}>
+          {data.days} {data.days === 1 ? 'day' : 'days'} • {data.estimatedBudget}
+        </span>
       </div>
 
       <h2 className="text-balance text-xl font-semibold">Your Curated Trip — Tweak to Match Your Vibe</h2>
@@ -142,8 +170,8 @@ export default function PlannerForm({ data, destination = "", days = 3, query = 
 
           <div className="mb-3 flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="text-lg font-semibold leading-tight">{d.city || "—"}</div>
-              <div className="text-sm text-foreground/60">Thailand</div>
+              <div className="text-lg font-semibold leading-tight">{d.city || data.destination}</div>
+              <div className="text-sm text-foreground/60">{data.bestTimeToVisit}</div>
             </div>
             <select
               className="rounded-xl border border-white/10 bg-background px-3 py-2 text-sm"
@@ -160,7 +188,6 @@ export default function PlannerForm({ data, destination = "", days = 3, query = 
           </div>
 
           <div className="mb-3">
-            <FieldLabel>Add place?</FieldLabel>
             <input
               className="mt-1 w-full rounded-xl border border-white/10 bg-background px-3 py-2 text-sm outline-none"
               placeholder="Add place?"
@@ -198,7 +225,17 @@ export default function PlannerForm({ data, destination = "", days = 3, query = 
             </button>
           </div>
 
-          <p className="text-xs text-foreground/50">No POIs preselected for this location.</p>
+          <div className="text-xs text-foreground/50">
+            <p className="mb-2">Suggested activities:</p>
+            <ul className="space-y-1">
+              {data.suggestedActivities.slice(0, 3).map((activity, i) => (
+                <li key={i} className="flex justify-between">
+                  <span>• {activity.activity}</span>
+                  <span className="text-foreground/40">{activity.duration}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </SectionCard>
       ))}
 
@@ -236,7 +273,7 @@ export default function PlannerForm({ data, destination = "", days = 3, query = 
             onSaved={(id) => console.log('Itinerary saved:', id)}
             onError={(error) => console.error('Save failed:', error)}
           />
-          
+
           {/* Right side: Action buttons */}
           <div className="flex gap-2">
             <button type="button" className={`${outline} rounded-xl px-4 py-2 text-sm`} onClick={() => history.back()}>

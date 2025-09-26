@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation"
 import { chatHistoryDB, generateSessionId, generateSessionTitle, type ChatSession } from "@/lib/chat-history"
 import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-itinerary-summary-card"
 import ServiceWorkerRegistration from "@/components/pwa/service-worker"
-import InstallPrompt from "@/components/pwa/install-prompt"
+// import InstallPrompt from "@/components/pwa/install-prompt"
 
 export default function Page() {
   const [isProcessing, setIsProcessing] = useState(false)
@@ -354,7 +354,6 @@ export default function Page() {
   return (
     <>
       <ServiceWorkerRegistration />
-      <InstallPrompt />
       <main className="min-h-dvh mx-auto max-w-md px-4 pb-24 pt-2 flex flex-col">
         <img src="/images/reference/gumo-home.jpg" alt="" aria-hidden className="hidden" />
 
@@ -453,9 +452,9 @@ export default function Page() {
                         href={m.payload.href}
                         imageSrc={m.payload.imageSrc}
                         chatData={m.payload}
-                      onSaved={(id) => console.log('Itinerary saved from summary:', id)}
-                      onError={(error) => console.error('Save failed from summary:', error)}
-                    />
+                        onSaved={(id) => console.log('Itinerary saved from summary:', id)}
+                        onError={(error) => console.error('Save failed from summary:', error)}
+                      />
                     </div>
                   )}
                 </div>
