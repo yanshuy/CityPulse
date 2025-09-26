@@ -4,15 +4,36 @@ import { TopBar } from "@/components/gumo/top-bar"
 import { SuggestionCard } from "@/components/gumo/suggestion-card"
 import { BottomNav } from "@/components/gumo/bottom-nav"
 import { ChatInput } from "@/components/gumo/chat-input"
+import PlannerForm from "@/components/planner/planner-form"
+import TrafficInsights from "@/components/gumo/traffic-insights"
+import EventsList from "@/components/gumo/events-list"
+import FoodList from "@/components/gumo/food-list"
+import ExploreGrid from "@/components/gumo/explore-grid"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 
 export default function Page() {
   const [isProcessing, setIsProcessing] = useState(false)
+
+  type ChatMessage =
+    | { id: string; role: 'user'; type: 'text'; text: string }
+    | { id: string; role: 'assistant'; type: 'text'; text: string }
+    | { id: string; role: 'assistant'; type: 'planner'; payload: { destination?: string; days?: number; query?: string } }
+    | { id: string; role: 'assistant'; type: 'traffic'; payload: { query?: string } }
+    | { id: string; role: 'assistant'; type: 'events'; payload: { heading?: string } }
+    | { id: string; role: 'assistant'; type: 'food'; payload: { heading?: string } }
+    | { id: string; role: 'assistant'; type: 'explore'; payload: { heading?: string } }
+
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const router = useRouter()
 
   async function handleQuery(query: string) {
     setIsProcessing(true)
+    // Immediately show the user's message in the thread
+    setMessages((prev) => [
+      ...prev,
+      { id: `u-${Date.now()}`, role: 'user', type: 'text', text: query },
+    ])
 
     try {
       const response = await fetch('/api/query', {
@@ -33,48 +54,88 @@ export default function Page() {
         // Handle different query types with available components
         switch (type) {
           case 'itinerary':
-            // Route to planner page with extracted parameters
-            const params = new URLSearchParams()
-            if (destination) params.set('loc', destination)
-            if (days) params.set('days', days.toString())
-            params.set('q', query)
-            router.push(`/planner?${params.toString()}`)
+            // Render planner component inline in chat
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `a-${Date.now()}-t`,
+                role: 'assistant',
+                type: 'text',
+                text: `I can plan a ${days ?? ''}${days ? '-day ' : ''}trip ${destination ? `to ${destination}` : ''}. Adjust details below and continue.`,
+              },
+              {
+                id: `a-${Date.now()}-p`,
+                role: 'assistant',
+                type: 'planner',
+                payload: {
+                  destination: destination || '',
+                  days: days,
+                  query,
+                },
+              },
+            ])
             break
 
           case 'traffic':
-            // Route to explore with traffic-specific search
-            router.push(`/explore?prompt=${encodeURIComponent('traffic conditions ' + (searchQuery || query))}`)
+            // Inline traffic insights card
+            setMessages((prev) => [
+              ...prev,
+              { id: `a-${Date.now()}-t`, role: 'assistant', type: 'text', text: 'Here are traffic insights for you:' },
+              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'traffic', payload: { query: searchQuery || query } },
+            ])
             break
 
           case 'events':
-            // Route to explore with events search
+            // Inline events list
             const eventsQuery = timeframe ? `events ${timeframe}` : 'local events'
-            router.push(`/explore?prompt=${encodeURIComponent(searchQuery || eventsQuery)}`)
+            setMessages((prev) => [
+              ...prev,
+              { id: `a-${Date.now()}-t`, role: 'assistant', type: 'text', text: `Here are ${eventsQuery}:` },
+              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'events', payload: { heading: eventsQuery } },
+            ])
             break
 
           case 'food':
-            // Route to explore with food search
-            router.push(`/explore?prompt=${encodeURIComponent(searchQuery || 'restaurants food')}`)
+            // Inline food list
+            setMessages((prev) => [
+              ...prev,
+              { id: `a-${Date.now()}-t`, role: 'assistant', type: 'text', text: 'Here are some popular places to eat:' },
+              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'food', payload: { heading: 'Popular restaurants' } },
+            ])
             break
 
           case 'explore':
-            // Route to explore page with search query
-            router.push(`/explore?prompt=${encodeURIComponent(searchQuery || query)}`)
+            // Inline explore grid
+            setMessages((prev) => [
+              ...prev,
+              { id: `a-${Date.now()}-t`, role: 'assistant', type: 'text', text: 'Exploring interesting spots…' },
+              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'explore', payload: { heading: 'Explore ideas' } },
+            ])
             break
 
           default:
-            // Fallback for general queries
-            router.push(`/explore?prompt=${encodeURIComponent(query)}`)
+            // Fallback for general queries – keep inline for now
+            setMessages((prev) => [
+              ...prev,
+              { id: `a-${Date.now()}`, role: 'assistant', type: 'text', text: 'Got it — here are some ideas you can explore.' },
+              { id: `a-${Date.now()}-x`, role: 'assistant', type: 'explore', payload: { heading: 'Suggestions' } },
+            ])
         }
       } else {
         // Fallback if AI processing fails
-        router.push(`/explore?prompt=${encodeURIComponent(query)}`)
+        setMessages((prev) => [
+          ...prev,
+          { id: `a-${Date.now()}`, role: 'assistant', type: 'text', text: 'I had trouble understanding that. Try rephrasing your request.' },
+        ])
       }
 
     } catch (error) {
       console.error('Error processing query:', error)
       // Fallback to original behavior
-      router.push(`/explore?prompt=${encodeURIComponent(query)}`)
+      setMessages((prev) => [
+        ...prev,
+        { id: `a-${Date.now()}`, role: 'assistant', type: 'text', text: 'Something went wrong. Please try again.' },
+      ])
     } finally {
       setIsProcessing(false)
     }
@@ -91,50 +152,96 @@ export default function Page() {
 
       <TopBar />
 
-      <section className="mt-6">
-        <h1 className="text-pretty text-2xl font-medium">
-          What's your plan for today?
-        </h1>
+      <section className="mt-6 space-y-4">
+        {messages.length === 0 ? (
+          <>
+            <h1 className="text-pretty text-2xl font-medium">
+              What's your plan for today?
+            </h1>
 
-        <>
-          <div className="mt-4 space-y-4">
-            <SuggestionCard
-              image="/traffic.png"
-              title="Check traffic conditions for my commute"
-              onClick={() => handleQuery("Check traffic conditions for my commute")}
-            />
-            <SuggestionCard
-              image="/events.png"
-              title="Find local events happening this weekend"
-              onClick={() => handleQuery("Find local events happening this weekend")}
-            />
-            <SuggestionCard
-              image="/food.png"
-              title="Plan a 3 day itinerary to Mumbai"
-              onClick={() => handleQuery("Plan a 3 day itinerary to Mumbai")}
-            />
-          </div>
+            <div className="mt-4 space-y-4">
+              <SuggestionCard
+                image="/traffic.png"
+                title="Check traffic conditions for my commute"
+                onClick={() => handleQuery("Check traffic conditions for my commute")}
+              />
+              <SuggestionCard
+                image="/events.png"
+                title="Find local events happening this weekend"
+                onClick={() => handleQuery("Find local events happening this weekend")}
+              />
+              <SuggestionCard
+                image="/food.png"
+                title="Plan a 3 day itinerary to Mumbai"
+                onClick={() => handleQuery("Plan a 3 day itinerary to Mumbai")}
+              />
+            </div>
 
-          <div className="mt-8 flex items-center justify-between">
-            <p className="text-[15px] leading-6 text-[color:var(--gumo-muted)]">
-              {isProcessing ? "Processing your request..." : "Discover how"}{" "}
-              <span className="font-semibold text-[color:var(--gumo-text)]">
-                CityPulse
-              </span>
-              {!isProcessing && <br />}
-              {!isProcessing && " can help you?"}
-            </p>
-            <a
-              href="/about"
-              className="inline-flex items-center gap-2 text-[15px] font-medium text-[color:var(--gumo-yellow)]"
-            >
-              Learn more
-              <span aria-hidden>↗</span>
-            </a>
+            <div className="mt-8 flex items-center justify-between">
+              <p className="text-[15px] leading-6 text-[color:var(--gumo-muted)]">
+                {isProcessing ? "Processing your request..." : "Discover how"}{" "}
+                <span className="font-semibold text-[color:var(--gumo-text)]">
+                  CityPulse
+                </span>
+                {!isProcessing && <br />}
+                {!isProcessing && " can help you?"}
+              </p>
+              <a
+                href="/about"
+                className="inline-flex items-center gap-2 text-[15px] font-medium text-[color:var(--gumo-yellow)]"
+              >
+                Learn more
+                <span aria-hidden>↗</span>
+              </a>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((m) => (
+              <div key={m.id} className={`${['planner', 'traffic', 'events', 'food', 'explore'].includes(m.type)
+                  ? 'w-full' // Full width for special UI components
+                  : `rounded-2xl p-3 ${m.role === 'user' ? 'bg-white/5 ml-12' : 'bg-white/10 mr-12'}`
+                }`}>
+                {m.type === 'text' && <p className="text-sm text-white/90">{m.text}</p>}
+                {m.type === 'planner' && (
+                  <div className="mt-2">
+                    <PlannerForm
+                      destination={m.payload.destination}
+                      days={m.payload.days}
+                      query={m.payload.query}
+                    />
+                  </div>
+                )}
+                {m.type === 'traffic' && (
+                  <div className="mt-2">
+                    <TrafficInsights query={m.payload.query} />
+                  </div>
+                )}
+                {m.type === 'events' && (
+                  <div className="mt-2">
+                    <EventsList heading={m.payload.heading} />
+                  </div>
+                )}
+                {m.type === 'food' && (
+                  <div className="mt-2">
+                    <FoodList heading={m.payload.heading} />
+                  </div>
+                )}
+                {m.type === 'explore' && (
+                  <div className="mt-2">
+                    <ExploreGrid heading={m.payload.heading} />
+                  </div>
+                )}
+              </div>
+            ))}
+            {isProcessing && (
+              <div className="rounded-2xl bg-white/10 p-3 mr-12">
+                <p className="text-sm text-white/70">Thinking…</p>
+              </div>
+            )}
           </div>
-        </>
+        )}
       </section>
-
       {/* Spacer to push input to bottom on taller screens */}
       <div className="flex-1" />
 
