@@ -3,17 +3,30 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ChevronDown, MessageSquare, Plus, SquareDashedBottom } from "lucide-react"
 
-export function TopBar() {
+interface TopBarProps {
+  onShowHistory?: () => void
+  onNewChat?: () => void
+}
+
+export function TopBar({ onShowHistory, onNewChat }: TopBarProps) {
   return (
     <header className="relative mt-1 flex items-center justify-center">
       {/* Left floating icons */}
       <div className="absolute left-0 top-0 flex items-center gap-2">
-        <div className="h-8 w-8 rounded-xl bg-[color:var(--gumo-surface)] grid place-items-center">
+        <button
+          onClick={onShowHistory}
+          className="h-8 w-8 rounded-xl bg-[color:var(--gumo-surface)] grid place-items-center hover:bg-[color:var(--gumo-surface)]/80 transition-colors"
+          aria-label="Show chat history"
+        >
           <SquareDashedBottom className="size-4 text-[color:var(--gumo-text)]/70" aria-hidden />
-        </div>
-        <div className="h-8 w-8 rounded-xl bg-[color:var(--gumo-surface)] grid place-items-center">
+        </button>
+        <button
+          onClick={onNewChat}
+          className="h-8 w-8 rounded-xl bg-[color:var(--gumo-surface)] grid place-items-center hover:bg-[color:var(--gumo-surface)]/80 transition-colors"
+          aria-label="Start new chat"
+        >
           <Plus className="size-4 text-[color:var(--gumo-text)]/70" aria-hidden />
-        </div>
+        </button>
       </div>
 
       {/* Center pill selector */}
