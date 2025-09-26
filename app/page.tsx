@@ -72,10 +72,18 @@ export default function Page() {
   }, [messages, saveCurrentSession])
 
   // Start new chat session
-  const startNewChat = useCallback(() => {
+  const startNewChat = useCallback(async () => {
     setCurrentSessionId(generateSessionId())
     setMessages([])
     setShowHistory(false)
+
+    // Refresh the sessions list to show updated history
+    try {
+      const sessions = await chatHistoryDB.getAllSessions()
+      setChatSessions(sessions)
+    } catch (error) {
+      console.error('Failed to refresh chat sessions:', error)
+    }
   }, [])
 
   // Load existing chat session
