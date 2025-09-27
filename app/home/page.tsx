@@ -527,9 +527,10 @@ const Page = () => {
         <Button
           variant="outline"
           className="gumo-pill text-gumo-text border-[color:var(--gumo-yellow)]/40 hover:bg-gumo-navy bg-transparent"
+          onClick={() => router.push("/knowledge-graph")}
         >
           <MapPin className="h-4 w-4 mr-2 text-[color:var(--gumo-yellow)]" />
-          New Destination
+          Knowledge Graph
         </Button>
         <Button
           variant="outline"
