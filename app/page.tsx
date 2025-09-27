@@ -11,15 +11,22 @@ import FoodList from "@/components/gumo/food-list"
 import ExploreGrid from "@/components/gumo/explore-grid"
 import PreferencesModal from "@/components/onboarding/preferences-modal"
 import { hasPreferences, savePreferences, type UserPreferences, saveAiGoals } from "@/lib/preferences"
+import { useUser } from "@/lib/user-store"
+import { sendUserToVinBackend } from "@/lib/utils"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { chatHistoryDB, generateSessionId, generateSessionTitle, type ChatSession } from "@/lib/chat-history"
 import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-itinerary-summary-card"
 import ItineraryGenerationLoader from "@/components/itinerary/itinerary-generation-loader"
 import ServiceWorkerRegistration from "@/components/pwa/service-worker"
+import { normalize } from "path"
 // import InstallPrompt from "@/components/pwa/install-prompt"
 
+
+export const VIN_URL = "https://live-merely-drum.ngrok-free.app"
+
 export default function Page() {
+  const { user } = useUser()
   const [isProcessing, setIsProcessing] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
@@ -109,14 +116,14 @@ export default function Page() {
     places: Array<{
       name: string
       type:
-        | "tourist_attraction"
-        | "historical"
-        | "nature"
-        | "entertainment"
-        | "shopping"
-        | "cultural"
-        | "religious"
-        | "modern"
+      | "tourist_attraction"
+      | "historical"
+      | "nature"
+      | "entertainment"
+      | "shopping"
+      | "cultural"
+      | "religious"
+      | "modern"
       rating: number
       location: string
       description: string
@@ -139,17 +146,17 @@ export default function Page() {
     | { id: string; role: "assistant"; type: "food"; payload: FoodData }
     | { id: string; role: "assistant"; type: "explore"; payload: ExploreData }
     | {
-        id: string
-        role: "assistant"
-        type: "summary"
-        payload: { title: string; blurb: string; bullets: string[]; href: string; imageSrc?: string }
-      }
+      id: string
+      role: "assistant"
+      type: "summary"
+      payload: { title: string; blurb: string; bullets: string[]; href: string; imageSrc?: string }
+    }
     | {
-        id: string
-        role: "assistant"
-        type: "itinerary-loading"
-        payload: { destination: string; days: number; message: string }
-      }
+      id: string
+      role: "assistant"
+      type: "itinerary-loading"
+      payload: { destination: string; days: number; message: string }
+    }
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const router = useRouter()
@@ -437,6 +444,12 @@ export default function Page() {
           onClose={() => setShowPrefs(false)}
           onSave={async (prefs: UserPreferences) => {
             savePreferences(prefs)
+            // Send the updated user object to VIN backend
+            if (user) {
+              let normalized = [`home:${prefs.home}`, `transport:${prefs.transport}`, `work:${prefs.work}`, `workhours:${prefs.workHours}`, `interests:${prefs.interests.join(" ")}`]
+              const updatedUser = { ...user, preferences: normalized }
+              sendUserToVinBackend(updatedUser)
+            }
             setShowPrefs(false)
             // Optional: confirm in chat stream
             setMessages((prev) => [

@@ -1,5 +1,7 @@
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import type { GlobalUser } from './user-store'
+import { VIN_URL } from '@/app/page'
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -90,5 +92,32 @@ export async function getAddressFromCoordinates(lat: number, lng: number): Promi
   } catch (error) {
     console.error('Error getting address:', error);
     throw error;
+  }
+}
+
+/**
+ * Send GlobalUser object to the VIN backend server
+ * @param user - The GlobalUser object to send
+ * @param vinUrl - The VIN server URL (e.g., "https://api.citypulse.ai")
+ */
+export async function sendUserToVinBackend(user: GlobalUser): Promise<void> {
+  try {
+    const response = await fetch(`${VIN_URL}/info`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(user),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to send user data to VIN backend: ${response.status} ${response.statusText}`)
+    }
+
+    console.log('✅ User data successfully sent to VIN backend')
+  } catch (error) {
+    console.error('❌ Error sending user data to VIN backend:', error)
+    // Don't throw the error to avoid breaking the main flow
+    // This is a best-effort operation
   }
 }
