@@ -9,9 +9,15 @@ import TrafficInsights from "@/components/gumo/traffic-insights"
 import EventsList from "@/components/gumo/events-list"
 import FoodList from "@/components/gumo/food-list"
 import ExploreGrid from "@/components/gumo/explore-grid"
+import PreferencesModal from "@/components/onboarding/preferences-modal"
+import { hasPreferences, savePreferences, type UserPreferences, saveAiGoals } from "@/lib/preferences"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { chatHistoryDB, generateSessionId, generateSessionTitle, type ChatSession } from "@/lib/chat-history"
+import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-itinerary-summary-card"
+import ItineraryGenerationLoader from "@/components/itinerary/itinerary-generation-loader"
+import ServiceWorkerRegistration from "@/components/pwa/service-worker"
+// import InstallPrompt from "@/components/pwa/install-prompt"
 import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-summary-card"
 
 export default function Page() {
@@ -19,6 +25,7 @@ export default function Page() {
   const [showHistory, setShowHistory] = useState(false)
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([])
+  const [showPrefs, setShowPrefs] = useState(false)
 
   type PlannerData = {
     destination: string
@@ -40,7 +47,7 @@ export default function Page() {
     route: string
     fromLocation: string
     toLocation: string
-    currentStatus: 'light' | 'moderate' | 'heavy' | 'severe'
+    currentStatus: "light" | "moderate" | "heavy" | "severe"
     estimatedTime: string
     estimatedDelay: string
     alternativeRoutes: Array<{
@@ -52,7 +59,7 @@ export default function Page() {
       type: string
       location: string
       impact: string
-      severity: 'low' | 'medium' | 'high'
+      severity: "low" | "medium" | "high"
     }>
     suggestion: string
     lastUpdated: string
@@ -67,7 +74,7 @@ export default function Page() {
       date: string
       time: string
       venue: string
-      category: 'music' | 'arts' | 'food' | 'sports' | 'tech' | 'cultural' | 'entertainment' | 'business'
+      category: "music" | "arts" | "food" | "sports" | "tech" | "cultural" | "entertainment" | "business"
       price: string
       description: string
       image?: string
@@ -102,7 +109,15 @@ export default function Page() {
     category?: string
     places: Array<{
       name: string
-      type: 'tourist_attraction' | 'historical' | 'nature' | 'entertainment' | 'shopping' | 'cultural' | 'religious' | 'modern'
+      type:
+        | "tourist_attraction"
+        | "historical"
+        | "nature"
+        | "entertainment"
+        | "shopping"
+        | "cultural"
+        | "religious"
+        | "modern"
       rating: number
       location: string
       description: string
@@ -125,11 +140,17 @@ export default function Page() {
     | { id: string; role: "assistant"; type: "food"; payload: FoodData }
     | { id: string; role: "assistant"; type: "explore"; payload: ExploreData }
     | {
-      id: string
-      role: "assistant"
-      type: "summary"
-      payload: { title: string; blurb: string; bullets: string[]; href: string; imageSrc?: string }
-    }
+        id: string
+        role: "assistant"
+        type: "summary"
+        payload: { title: string; blurb: string; bullets: string[]; href: string; imageSrc?: string }
+      }
+    | {
+        id: string
+        role: "assistant"
+        type: "itinerary-loading"
+        payload: { destination: string; days: number; message: string }
+      }
 
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const router = useRouter()
@@ -209,18 +230,73 @@ export default function Page() {
     function onAdd(e: Event) {
       const ce = e as CustomEvent<{ title: string; blurb: string; bullets: string[]; href: string; imageSrc?: string }>
       if (!ce.detail) return
+
+      // Replace any existing loading message with the summary
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => m.type !== "itinerary-loading")
+        return [
+          ...filtered,
+          {
+            id: `a-${Date.now()}-s`,
+            role: "assistant",
+            type: "summary",
+            payload: ce.detail,
+          },
+        ]
+      })
+    }
+
+    function onLoadingStart(e: Event) {
+      const ce = e as CustomEvent<{ destination: string; days: number; message: string }>
+      if (!ce.detail) return
+
       setMessages((prev) => [
         ...prev,
         {
-          id: `a-${Date.now()}-s`,
+          id: `a-${Date.now()}-loading`,
           role: "assistant",
-          type: "summary",
+          type: "itinerary-loading",
           payload: ce.detail,
         },
       ])
     }
+
+    function onError(e: Event) {
+      const ce = e as CustomEvent<{ error: string }>
+      if (!ce.detail) return
+
+      // Remove loading message and show error
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => m.type !== "itinerary-loading")
+        return [
+          ...filtered,
+          {
+            id: `a-${Date.now()}-error`,
+            role: "assistant",
+            type: "text",
+            text: `Sorry, I couldn't generate your itinerary: ${ce.detail.error}. Please try again.`,
+          },
+        ]
+      })
+    }
+
     window.addEventListener("gumo:add-itinerary-summary", onAdd as EventListener)
-    return () => window.removeEventListener("gumo:add-itinerary-summary", onAdd as EventListener)
+    window.addEventListener("gumo:itinerary-generating", onLoadingStart as EventListener)
+    window.addEventListener("gumo:itinerary-error", onError as EventListener)
+
+    return () => {
+      window.removeEventListener("gumo:add-itinerary-summary", onAdd as EventListener)
+      window.removeEventListener("gumo:itinerary-generating", onLoadingStart as EventListener)
+      window.removeEventListener("gumo:itinerary-error", onError as EventListener)
+    }
+  }, [])
+
+  useEffect(() => {
+    try {
+      if (!hasPreferences()) setShowPrefs(true)
+    } catch {
+      // ignore storage errors
+    }
   }, [])
 
   async function handleQuery(query: string) {
@@ -350,10 +426,57 @@ export default function Page() {
   }
 
   return (
-    <main className="min-h-dvh mx-auto max-w-md px-4 pb-24 pt-2 flex flex-col">
-      <img src="/images/reference/gumo-home.jpg" alt="" aria-hidden className="hidden" />
+    <>
+      <ServiceWorkerRegistration />
+      <main className="min-h-dvh mx-auto max-w-md px-4 pb-24 pt-2 flex flex-col">
+        <img src="/images/reference/gumo-home.jpg" alt="" aria-hidden className="hidden" />
 
-      <TopBar onShowHistory={() => setShowHistory(true)} onNewChat={startNewChat} />
+        <TopBar onShowHistory={() => setShowHistory(true)} onNewChat={startNewChat} />
+
+        <PreferencesModal
+          open={showPrefs}
+          onClose={() => setShowPrefs(false)}
+          onSave={async (prefs: UserPreferences) => {
+            savePreferences(prefs)
+            setShowPrefs(false)
+            // Optional: confirm in chat stream
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: `a-${Date.now()}-prefs`,
+                role: "assistant",
+                type: "text",
+                text: "Thanks! I saved your vibe, schedule, and interests. I’ll tailor goals and suggestions for your routine.",
+              },
+            ])
+
+            try {
+              const res = await fetch("/api/preferences/evaluate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ preferences: prefs }),
+              })
+              const json = await res.json()
+              if (json?.success && json?.data) {
+                saveAiGoals(json.data)
+                // let the user know goals were set
+                setMessages((prev) => [
+                  ...prev,
+                  {
+                    id: `a-${Date.now()}-goals`,
+                    role: "assistant",
+                    type: "text",
+                    text: "I generated daily goals from your schedule. Check your Home screen’s Current Goal.",
+                  },
+                ])
+                // optionally dispatch an event in case other parts listen
+                window.dispatchEvent(new CustomEvent("citypulse:goals-updated"))
+              }
+            } catch (e) {
+              console.error("Failed to evaluate goals:", e)
+            }
+          }}
+        />
 
       {showHistory && (
         <ChatHistory
@@ -389,89 +512,87 @@ export default function Page() {
               />
             </div>
 
-            <div className="mt-8 flex items-center justify-between">
-              <p className="text-[15px] leading-6 text-[color:var(--gumo-muted)]">
-                {isProcessing ? "Processing your request..." : "Discover how"}{" "}
-                <span className="font-semibold text-[color:var(--gumo-text)]">CityPulse</span>
-                {!isProcessing && <br />}
-                {!isProcessing && " can help you?"}
-              </p>
-              <a
-                href="/about"
-                className="inline-flex items-center gap-2 text-[15px] font-medium text-[color:var(--gumo-yellow)]"
-              >
-                Learn more
-                <span aria-hidden>↗</span>
-              </a>
+              <div className="mt-8 flex items-center justify-between">
+                <p className="text-[15px] leading-6 text-[color:var(--gumo-muted)]">
+                  {isProcessing ? "Processing your request..." : "Discover how"}{" "}
+                  <span className="font-semibold text-[color:var(--gumo-text)]">CityPulse</span>
+                  {!isProcessing && <br />}
+                  {!isProcessing && " can help you?"}
+                </p>
+                <a
+                  href="/about"
+                  className="inline-flex items-center gap-2 text-[15px] font-medium text-[color:var(--gumo-yellow)]"
+                >
+                  Learn more
+                  <span aria-hidden>↗</span>
+                </a>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((m) => (
+                <div key={m.id}>
+                  {m.type === "text" && (
+                    <div className={`rounded-2xl p-3 ${m.role === "user" ? "bg-white/5 ml-12" : "bg-white/10 mr-12"}`}>
+                      <p className="text-sm text-white/90">{m.text}</p>
+                    </div>
+                  )}
+                  {m.type === "planner" && (
+                    <div className="mb-6">
+                      <PlannerForm data={m.payload} />
+                    </div>
+                  )}
+                  {m.type === "traffic" && (
+                    <div className="mb-6">
+                      <TrafficInsights data={m.payload} />
+                    </div>
+                  )}
+                  {m.type === "events" && (
+                    <div className="mb-6">
+                      <EventsList data={m.payload} />
+                    </div>
+                  )}
+                  {m.type === "food" && (
+                    <div className="mb-6">
+                      <FoodList data={m.payload} />
+                    </div>
+                  )}
+                  {m.type === "explore" && (
+                    <div className="mb-6">
+                      <ExploreGrid data={m.payload} />
+                    </div>
+                  )}
+                  {m.type === "summary" && (
+                    <div className="mb-6">
+                      <SaveableItinerarySummaryCard
+                        title={m.payload.title}
+                        blurb={m.payload.blurb}
+                        bullets={m.payload.bullets}
+                        href={m.payload.href}
+                        imageSrc={m.payload.imageSrc}
+                        chatData={m.payload}
+                        onSaved={(id) => console.log("Itinerary saved from summary:", id)}
+                        onError={(error) => console.error("Save failed from summary:", error)}
+                      />
+                    </div>
+                  )}
+                  {m.type === "itinerary-loading" && (
+                    <div className="mb-6">
+                      <ItineraryGenerationLoader destination={m.payload.destination} days={m.payload.days} />
+                    </div>
+                  )}
+                </div>
+              ))}
+              {isProcessing && (
+                <div className="rounded-2xl bg-white/10 p-3 mr-12">
+                  <p className="text-sm text-white/70">Thinking…</p>
+                </div>
+              )}
             </div>
-          </>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((m) => (
-              <div key={m.id}>
-                {m.type === "text" && (
-                  <div className={`rounded-2xl p-3 ${m.role === "user" ? "bg-white/5 ml-12" : "bg-white/10 mr-12"}`}>
-                    <p className="text-sm text-white/90">{m.text}</p>
-                  </div>
-                )}
-                {m.type === "planner" && (
-                  <div className="mb-6">
-                    <PlannerForm data={m.payload} />
-                  </div>
-                )}
-                {m.type === "traffic" && (
-                  <div className="mb-6">
-                    <TrafficInsights data={m.payload} />
-                  </div>
-                )}
-                {m.type === "events" && (
-                  <div className="mb-6">
-                    <EventsList data={m.payload} />
-                  </div>
-                )}
-                {m.type === "food" && (
-                  <div className="mb-6">
-                    <FoodList data={m.payload} />
-                  </div>
-                )}
-                {m.type === "explore" && (
-                  <div className="mb-6">
-                    <ExploreGrid data={m.payload} />
-                  </div>
-                )}
-                {m.type === "summary" && (
-                  <div className="mb-6">
-                    <SaveableItinerarySummaryCard
-                      title={m.payload.title}
-                      blurb={m.payload.blurb}
-                      bullets={m.payload.bullets}
-                      href={m.payload.href}
-                      imageSrc={m.payload.imageSrc}
-                      itineraryData={{
-                        title: m.payload.title,
-                        description: m.payload.blurb,
-                        destinations: [{ city: m.payload.title.split(' ')[0] || 'Unknown', days: 3 }],
-                        highlights: m.payload.bullets,
-                        imageSrc: m.payload.imageSrc,
-                        chatData: m.payload
-                      }}
-                      onSaved={(id) => console.log('Itinerary saved from summary:', id)}
-                      onError={(error) => console.error('Save failed from summary:', error)}
-                    />
-                  </div>
-                )}
-              </div>
-            ))}
-            {isProcessing && (
-              <div className="rounded-2xl bg-white/10 p-3 mr-12">
-                <p className="text-sm text-white/70">Thinking…</p>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
-      {/* Spacer to push input to bottom on taller screens */}
-      <div className="flex-1" />
+          )}
+        </section>
+        {/* Spacer to push input to bottom on taller screens */}
+        <div className="flex-1" />
 
       <div className="relative">
         <div className="gumo-ambient" />
