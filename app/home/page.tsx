@@ -311,9 +311,11 @@ const Page = () => {
           <div className="flex flex-col items-end">
             <div className="flex items-center gap-1">
               {React.createElement(weather.icon as React.ElementType, {
-                className: "h-6 w-6 text-[color:var(--gumo-yellow)]"
+                className: "h-6 w-6 text-[color:var(--gumo-yellow)]",
               })}
-              <span className="text-xl font-semibold text-gumo-text">{weather.temp}°C</span>
+              <span className="text-xl font-semibold text-gumo-text">
+                {weather.temp}°C
+              </span>
             </div>
             <div className="text-xs text-gumo-muted flex items-center gap-2">
               <span>Feels like {weather.feelsLike}°C</span>
@@ -324,17 +326,17 @@ const Page = () => {
         </div>
       </div>
 
-
-
       {/* Active Goal Card */}
       <Card className="gumo-card p-4 mb-6">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold text-gumo-text">Current Goal</h2>
+          <h2 className="text-lg font-semibold text-gumo-text">
+            Upcoming Plan
+          </h2>
           <Button
             variant="ghost"
             size="sm"
             className="text-gumo-yellow hover:bg-gumo-navy"
-            onClick={() => router.push('/goals')}
+            onClick={() => router.push("/goals")}
           >
             Edit
           </Button>

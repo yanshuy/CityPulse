@@ -35,15 +35,14 @@ export function BottomNav() {
   const pathname = usePathname()
   return (
     <nav aria-label="Primary" className="gumo-card flex items-center gap-3 p-2">
-      <NavBtn
-        href="/home"
-        active={pathname?.startsWith("/home")}
-        label="Home"
-      >
+      <NavBtn href="/home" active={pathname?.startsWith("/home")} label="Home">
         <House className="size-6" aria-hidden />
       </NavBtn>
       <NavBtn href="/" active={pathname === "/"} label="Home">
         <Smile className="size-6" aria-hidden />
+      </NavBtn>
+      <NavBtn href="/maps" active={pathname?.startsWith("/maps")} label="Maps">
+        <Map className="size-6" aria-hidden />
       </NavBtn>
       <NavBtn
         href="/explore"
@@ -51,9 +50,6 @@ export function BottomNav() {
         label="Discover"
       >
         <Globe2 className="size-6" aria-hidden />
-      </NavBtn>
-      <NavBtn href="/maps" active={pathname?.startsWith("/maps")} label="Maps">
-        <Map className="size-6" aria-hidden />
       </NavBtn>
       <NavBtn
         href="/profile"
