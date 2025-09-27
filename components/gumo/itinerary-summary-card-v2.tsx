@@ -35,7 +35,7 @@ export default function ItinerarySummaryCardV2({
       aria-label={`${title} — view full itinerary`}
     >
       {/* Background image with improved overlay */}
-      <div className="relative h-[28.5rem]">
+      <div className="relative h-[34rem]">
         <Image
           src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0d/40/ce/c3/mumbai-marine-drive-along.jpg?w=900&h=-1&s=1"
           alt={title}
