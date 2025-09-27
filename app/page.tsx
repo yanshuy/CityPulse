@@ -490,39 +490,39 @@ export default function Page() {
           }}
         />
 
-      {showHistory && (
-        <ChatHistory
-          sessions={chatSessions}
-          onSelectSession={loadChatSession}
-          onClose={() => setShowHistory(false)}
-          onDeleteSession={(sessionId) => {
-            setChatSessions((prev) => prev.filter((s) => s.id !== sessionId))
-          }}
-        />
-      )}
+        {showHistory && (
+          <ChatHistory
+            sessions={chatSessions}
+            onSelectSession={loadChatSession}
+            onClose={() => setShowHistory(false)}
+            onDeleteSession={(sessionId) => {
+              setChatSessions((prev) => prev.filter((s) => s.id !== sessionId))
+            }}
+          />
+        )}
 
-      <section className="mt-6 space-y-4">
-        {messages.length === 0 ? (
-          <>
-            <h1 className="text-pretty text-2xl font-medium">What's your plan for today?</h1>
+        <section className="mt-6 space-y-4">
+          {messages.length === 0 ? (
+            <>
+              <h1 className="text-pretty text-2xl font-medium">What's your plan for today?</h1>
 
-            <div className="mt-4 space-y-4">
-              <SuggestionCard
-                image="/traffic.png"
-                title="Check traffic conditions for my commute"
-                onClick={() => handleQuery("Check traffic conditions for my commute")}
-              />
-              <SuggestionCard
-                image="/events.png"
-                title="Find local events happening this weekend"
-                onClick={() => handleQuery("Find local events happening this weekend")}
-              />
-              <SuggestionCard
-                image="/food.png"
-                title="Plan a 3 day itinerary to Mumbai"
-                onClick={() => handleQuery("Plan a 3 day itinerary to Mumbai")}
-              />
-            </div>
+              <div className="mt-4 space-y-4">
+                <SuggestionCard
+                  image="/traffic.png"
+                  title="Check traffic conditions for my commute"
+                  onClick={() => handleQuery("Check traffic conditions for my commute")}
+                />
+                <SuggestionCard
+                  image="/events.png"
+                  title="Find local events happening this weekend"
+                  onClick={() => handleQuery("Find local events happening this weekend")}
+                />
+                <SuggestionCard
+                  image="/food.png"
+                  title="Plan a 3 day itinerary to Mumbai"
+                  onClick={() => handleQuery("Plan a 3 day itinerary to Mumbai")}
+                />
+              </div>
 
               <div className="mt-8 flex items-center justify-between">
                 <p className="text-[15px] leading-6 text-[color:var(--gumo-muted)]">
@@ -597,7 +597,7 @@ export default function Page() {
               ))}
               {isProcessing && (
                 <div className="rounded-2xl bg-white/10 p-3 mr-12">
-                  <p className="text-sm text-white/70">Thinking…</p>
+                  <p className="text-sm text-white/70 mb-4">Thinking…</p>
                 </div>
               )}
             </div>
@@ -606,11 +606,11 @@ export default function Page() {
         {/* Spacer to push input to bottom on taller screens */}
         <div className="flex-1" />
 
-      <div className="relative">
-        <div className="gumo-ambient" />
-        <ChatInput onQuerySubmit={handleQuery} disabled={isProcessing} />
-      </div>
-    </main>
+        <div className="relative">
+          <div className="gumo-ambient" />
+          <ChatInput onQuerySubmit={handleQuery} disabled={isProcessing} />
+        </div>
+      </main>
     </>
   )
 }

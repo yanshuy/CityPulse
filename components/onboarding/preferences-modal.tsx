@@ -91,14 +91,12 @@ export default function PreferencesModal({ open, onClose, onSave }: Props) {
     >
       <div
         style={{
-          height: "95vh",
-          scrollbarColor: "transparent",
           scrollbarWidth: "none",
-        }} className="w-full md:max-w-md rounded-t-2xl md:rounded-2xl border border-white/10 bg-[color:var(--gumo-bg)]">
+        }} className="w-full  md:max-w-md overflow-y-auto max-h-[100vh] rounded-t-2xl md:rounded-2xl border border-white/10 bg-[color:var(--gumo-bg)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-5  border-b border-white/10">
           <div>
-            <h2 className="text-lg font-semibold text-[color:var(--gumo-text)]">Tell Us Your Vibe</h2>
+            <h2 className="text-lg font-semibold text-[color:var(--gumo-text)] pt-4">Tell Us Your Vibe</h2>
             <p className="text-sm text-[color:var(--gumo-muted)]">
               We’ll personalize your goals and suggestions based on your routine and interests.
             </p>

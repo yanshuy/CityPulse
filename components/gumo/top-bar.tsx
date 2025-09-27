@@ -1,7 +1,7 @@
 "use client"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ChevronDown, MessageSquare, Plus, SquareDashedBottom } from "lucide-react"
+import { ChevronDown, MessageSquare, Plus, Settings, SquareDashedBottom } from "lucide-react"
 
 interface TopBarProps {
   onShowHistory?: () => void
@@ -41,7 +41,7 @@ export function TopBar({ onShowHistory, onNewChat }: TopBarProps) {
 
       {/* Right floating icon */}
       <div className="absolute right-0 top-0 h-8 w-8 rounded-xl bg-[color:var(--gumo-surface)] grid place-items-center">
-        <MessageSquare className="size-4 text-[color:var(--gumo-text)]/70" aria-hidden />
+        <Settings className="size-4 text-[color:var(--gumo-text)]/70" aria-hidden />
       </div>
     </header>
   )
