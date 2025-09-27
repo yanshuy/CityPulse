@@ -6,9 +6,14 @@ import ItineraryDisplay from "@/components/itinerary/dynamic-itinerary-display"
 import EditItineraryModal from "@/components/itinerary/edit-itinerary-modal"
 import { GeneratedItinerary, ItineraryItem } from "@/lib/types/component-schemas"
 import { getItinerary, saveItinerary } from "@/lib/itinerary-storage"
+import { itineraryDB, type Itinerary } from "@/lib/db/itinerary-db"
+import { convertStoredItineraryToGenerated } from '@/lib/itinerary/normalize'
+
+// Conversion moved to shared util `convertStoredItineraryToGenerated`.
 
 export default function ItineraryPage() {
   const searchParams = useSearchParams()
+  const readOnly = searchParams.get('readOnly') === 'true'
 
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -21,12 +26,34 @@ export default function ItineraryPage() {
         const itineraryId = searchParams.get('id')
 
         if (itineraryId) {
-          const itineraryData = await getItinerary(itineraryId)
-          if (itineraryData) {
-            setItinerary(itineraryData)
-          } else {
-            setError('Itinerary not found')
+          // First try the new itinerary system (itineraryDB)
+          try {
+            await itineraryDB.init()
+            const newItinerary = await itineraryDB.getItinerary(itineraryId)
+            if (newItinerary) {
+              console.log('🔍 Raw itinerary from new system:', newItinerary);
+              console.log('🔍 Raw itinerary destinations:', newItinerary.destinations);
+              console.log('🔍 Raw itinerary chatData:', newItinerary.chatData);
+              const generatedItinerary = convertStoredItineraryToGenerated(newItinerary)
+              console.log('🔄 Converted itinerary:', generatedItinerary);
+              console.log('📅 Converted Days array:', generatedItinerary.days);
+              console.log('🔢 Days array type:', typeof generatedItinerary.days);
+              console.log('🔢 Days array length:', generatedItinerary.days?.length);
+              setItinerary(generatedItinerary)
+              return
+            }
+          } catch (newSystemError) {
+            console.log('New system failed, trying old system:', newSystemError)
           }
+
+          // Fallback to old itinerary system
+          const oldItineraryData = await getItinerary(itineraryId)
+          if (oldItineraryData) {
+            setItinerary(oldItineraryData)
+            return
+          }
+          
+          setError('Itinerary not found in either storage system')
         } else {
           // Fallback: check for old URL format
           const itineraryParam = searchParams.get('itinerary')
@@ -185,25 +212,40 @@ export default function ItineraryPage() {
         </div>
       </div>
     )
-  } return (
+  }
+
+  return (
     <div className="min-h-screen bg-[color:var(--gumo-bg)] p-4">
       <div className="max-w-4xl mx-auto">
         {/* Back Button */}
         <div className="mb-6">
           <a
-            href="/"
+            href={readOnly ? "/profile" : "/"}
             className="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors"
           >
-            ← Back to Chat
+            ← Back to {readOnly ? "Profile" : "Chat"}
           </a>
         </div>
 
         {/* Itinerary Display */}
+        {/* Actions Row */}
+        {(currentItinerary || itinerary)?.days?.length > 0 && (
+          <div className="mb-4 flex justify-end gap-2">
+            <a
+              href={`/itinerary/map?id=${(currentItinerary || itinerary).id}`}
+              className="px-4 py-2 rounded-lg bg-[color:var(--gumo-yellow)] text-black text-sm font-medium hover:brightness-110 transition-colors"
+            >
+              Map View
+            </a>
+          </div>
+        )}
+
         <ItineraryDisplay
           itinerary={currentItinerary || itinerary}
-          onEdit={handleEdit}
-          onRemove={handleRemove}
-          onAddSuggestion={handleAddSuggestion}
+          onEdit={readOnly ? undefined : handleEdit}
+          onRemove={readOnly ? undefined : handleRemove}
+          onAddSuggestion={readOnly ? undefined : handleAddSuggestion}
+          readOnly={readOnly}
         />
 
         {/* Edit Modal */}

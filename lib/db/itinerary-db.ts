@@ -259,21 +259,87 @@ export async function createSampleItineraries(): Promise<void> {
 
 // Utility function to generate sample itinerary data
 export function createItineraryFromChat(chatData: any): Omit<Itinerary, 'id' | 'createdAt' | 'updatedAt'> {
-  // This would parse chat data and extract itinerary information
-  // For now, we'll return a template structure
-  const destinations = chatData.destinations || [{ city: 'Bangkok', days: 3 }]
-  const mainCity = destinations[0]?.city || 'Unknown City'
-  
+  // Enhanced parser that preserves full day-by-day GeneratedItinerary structures
+  // while still supporting earlier lightweight chat summary formats.
+
+  if (!chatData || typeof chatData !== 'object') {
+    return {
+      title: 'Trip Plan',
+      description: 'A curated travel experience awaits.',
+      destinations: [{ city: 'Unknown', days: 3 }],
+      highlights: ['Explore landmarks', 'Taste local food', 'Enjoy culture'],
+      imageSrc: undefined,
+      chatData
+    }
+  }
+
+  // CASE 1: Full GeneratedItinerary shape (has days array with items)
+  const looksLikeGenerated = Array.isArray(chatData.days) && chatData.days.length > 0 &&
+    chatData.days[0] && Array.isArray(chatData.days[0].items)
+
+  if (looksLikeGenerated) {
+    const city = chatData.destination || chatData.destinations?.[0]?.city || 'Unknown'
+    const totalDays = chatData.days.length
+
+    return {
+      title: chatData.title || `Trip to ${city}`,
+      description: chatData.overview || chatData.description || `Explore the amazing city of ${city} with this carefully crafted itinerary.`,
+      destinations: [{ city, days: totalDays }],
+      highlights: chatData.generalTips || chatData.highlights || [
+        'Visit iconic landmarks',
+        'Experience local cuisine',
+        'Discover hidden gems'
+      ],
+      imageSrc: chatData.imageSrc || chatData.image,
+      // Preserve the entire generated itinerary so the viewer page can reconstruct it
+      chatData
+    }
+  }
+
+  // CASE 2: Newer chat summary format with destinations array already
+  if (Array.isArray(chatData.destinations) && chatData.destinations.length > 0) {
+    return {
+      title: chatData.title || `Trip to ${chatData.destinations[0].city}`,
+      description: chatData.description || `Explore the amazing city of ${chatData.destinations[0].city} with this carefully crafted itinerary.`,
+      destinations: chatData.destinations,
+      highlights: chatData.highlights || [
+        'Visit iconic landmarks',
+        'Experience local cuisine',
+        'Discover hidden gems'
+      ],
+      imageSrc: chatData.imageSrc || chatData.image,
+      chatData
+    }
+  }
+
+  // CASE 3: Minimal planner data (destination + days)
+  if (chatData.destination && chatData.days) {
+    return {
+      title: chatData.title || chatData.suggestedTitle || `Trip to ${chatData.destination}`,
+      description: chatData.description || chatData.overview || `Explore the amazing city of ${chatData.destination} with this carefully crafted itinerary.`,
+      destinations: [{ city: chatData.destination, days: chatData.days }],
+      highlights: chatData.highlights || chatData.generalTips || [
+        'Visit iconic landmarks',
+        'Experience local cuisine',
+        'Discover hidden gems'
+      ],
+      imageSrc: chatData.imageSrc || chatData.image,
+      chatData
+    }
+  }
+
+  // Fallback legacy behaviour
+  const destinations = [{ city: 'Bangkok', days: 3 }]
   return {
-    title: chatData.title || `Trip to ${mainCity}`,
-    description: chatData.description || `Explore the amazing city of ${mainCity} with this carefully crafted itinerary.`,
+    title: chatData.title || `Trip to ${destinations[0].city}`,
+    description: chatData.description || `Explore the amazing city of ${destinations[0].city} with this carefully crafted itinerary.`,
     destinations,
     highlights: chatData.highlights || [
       'Visit iconic landmarks',
       'Experience local cuisine',
       'Discover hidden gems'
     ],
-    imageSrc: chatData.imageSrc,
+    imageSrc: chatData.imageSrc || chatData.image,
     chatData
   }
 }

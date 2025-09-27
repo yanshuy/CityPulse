@@ -321,6 +321,3 @@ export default function ItineraryDetailPage({ params }: ItineraryDetailPageProps
     </main>
   )
 }
-
-  return <ItineraryMapView itinerary={itinerary} />
-}

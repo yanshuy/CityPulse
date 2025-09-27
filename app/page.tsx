@@ -18,7 +18,6 @@ import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-itiner
 import ItineraryGenerationLoader from "@/components/itinerary/itinerary-generation-loader"
 import ServiceWorkerRegistration from "@/components/pwa/service-worker"
 // import InstallPrompt from "@/components/pwa/install-prompt"
-import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-summary-card"
 
 export default function Page() {
   const [isProcessing, setIsProcessing] = useState(false)
@@ -599,5 +598,6 @@ export default function Page() {
         <ChatInput onQuerySubmit={handleQuery} disabled={isProcessing} />
       </div>
     </main>
+    </>
   )
 }

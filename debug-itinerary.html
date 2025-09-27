@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IndexedDB Itinerary Debug</title>
+</head>
+<body>
+    <h1>IndexedDB Itinerary Debug</h1>
+    <button onclick="inspectItinerary()">Inspect Itinerary</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function inspectItinerary() {
+            const itineraryId = 'itinerary-1758941904719-xwrhzp0s0';
+            const output = document.getElementById('output');
+            
+            try {
+                // Open IndexedDB
+                const request = indexedDB.open('CityPulseItineraries', 1);
+                const db = await new Promise((resolve, reject) => {
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+                
+                // Get the itinerary
+                const transaction = db.transaction(['itineraries'], 'readonly');
+                const store = transaction.objectStore('itineraries');
+                const getRequest = store.get(itineraryId);
+                
+                const itinerary = await new Promise((resolve, reject) => {
+                    getRequest.onsuccess = () => resolve(getRequest.result);
+                    getRequest.onerror = () => reject(getRequest.error);
+                });
+                
+                output.textContent = JSON.stringify(itinerary, null, 2);
+                
+                if (itinerary && itinerary.chatData) {
+                    console.log('ChatData type:', typeof itinerary.chatData.days);
+                    console.log('ChatData days:', itinerary.chatData.days);
+                }
+                
+            } catch (error) {
+                output.textContent = 'Error: ' + error.message;
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>

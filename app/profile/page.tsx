@@ -20,12 +20,23 @@ export default function ProfilePage() {
   const loadItineraries = async () => {
     try {
       setLoading(true)
+      console.log('🔄 Loading itineraries from IndexedDB...')
+      
       await itineraryDB.init()
+      console.log('✅ IndexedDB initialized successfully')
+      
       const savedItineraries = await itineraryDB.getAllItineraries()
+      console.log('📝 Raw itineraries from DB:', savedItineraries)
+      console.log('📊 Total itineraries found:', savedItineraries.length)
+      
+      if (savedItineraries.length > 0) {
+        console.log('🎯 First itinerary sample:', savedItineraries[0])
+      }
+      
       setItineraries(savedItineraries)
     } catch (err) {
-      console.error('Error loading itineraries:', err)
-      setError('Failed to load itineraries')
+      console.error('❌ Error loading itineraries:', err)
+      setError(`Failed to load itineraries: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -153,7 +164,7 @@ export default function ProfilePage() {
                   title={itinerary.title}
                   blurb={itinerary.description}
                   bullets={itinerary.highlights}
-                  href={`/itinerary?plan=${encodeURIComponent(JSON.stringify(itinerary.destinations))}`}
+                  href={`/itinerary?id=${itinerary.id}&readOnly=true`}
                   imageSrc={itinerary.imageSrc}
                 />
 
