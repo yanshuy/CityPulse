@@ -34,12 +34,20 @@ const transportOptions: TransportOption[] = [
 
 const Page = () => {
   const router = useRouter();
-  const [goals, setGoals] = useState<Goal[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([
+    {
+      destination: "Thane",
+      Time: "18:00",
+      Transport: ['Auto', 'Train'],
+    },
+  ]);
   const [currentGoal, setCurrentGoal] = useState<Partial<Goal>>({
     destination: "",
     Time: "",
     Transport: [],
   });
+  console.log(goals);
+  
 
   const addTransport = (transport: TransportOption) => {
     if (!currentGoal.Transport?.includes(transport.name)) {

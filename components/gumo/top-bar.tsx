@@ -35,7 +35,7 @@ export function TopBar({ onShowHistory, onNewChat }: TopBarProps) {
           <AvatarImage alt="Profile" src="/diverse-avatars.png" />
           <AvatarFallback className="bg-[oklch(0.68_0.2_30)] text-black">G</AvatarFallback>
         </Avatar>
-        <span className="text-sm font-medium text-white/90">No Vibes</span>
+        <span className="text-sm font-medium text-white/90">Aryan Pandey</span>
         <ChevronDown className="ml-1 size-4 text-white/80" aria-hidden />
       </button>
 

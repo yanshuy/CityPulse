@@ -88,8 +88,8 @@ export default function ProfilePage() {
             ☺
           </div>
           <div className="flex-1">
-            <h1 className="text-2xl font-semibold">My Travel Profile</h1>
-            <p className="text-sm text-white/70">@citypulse.traveler</p>
+            <h1 className="text-2xl font-semibold">Aryan Pandey</h1>
+            <p className="text-sm text-white/70">@aryan.pandey</p>
             <p className="mt-1 text-sm">
               <span className="font-medium">{mounted ? itineraries.length : 0}</span> Saved Itineraries
             </p>

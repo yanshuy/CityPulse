@@ -1,6 +1,7 @@
 import { google } from "@ai-sdk/google"
 import { generateObject } from "ai"
 import { z } from "zod"
+import { withRetry } from "@/lib/utils"
 
 export const runtime = "nodejs"
 
@@ -48,10 +49,12 @@ export async function POST(req: Request) {
     const start = preferences?.workHours?.start || "09:00"
     const transport = preferences?.transport || "Metro"
 
-    const { object } = await generateObject({
-      model: google("gemini-2.0-flash"),
-      schema: GoalsResponseSchema,
-      prompt: `
+    const { object } = await withRetry(
+      async () => {
+        return await generateObject({
+          model: google("gemini-2.0-flash"),
+          schema: GoalsResponseSchema,
+          prompt: `
 You are CityPulse's assistant. The user provided their routine and interests. Convert them into 2-6 concise, actionable "goals" for daily living (commute, fitness, leisure, errands).
 - Use user's words from SCHEDULE POINTS.
 - Respect WORK HOURS, TRANSPORT, and INTERESTS.
@@ -77,8 +80,15 @@ OUTPUT RULES
 - goals[].reason: brief rationale connecting schedule/interests.
 
 Select "primary" as what the user most likely should focus on next on a typical day.
-      `,
-    })
+          `,
+        })
+      },
+      {
+        maxRetries: 3,
+        baseDelay: 1000,
+        maxDelay: 8000
+      }
+    )
 
     return Response.json({ success: true, data: object })
   } catch (error) {

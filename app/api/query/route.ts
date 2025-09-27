@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import { z } from 'zod'
+import { withRetry } from '@/lib/utils'
 
 // Ensure we run in the Node.js runtime so .env.local is available
 export const runtime = 'nodejs'
@@ -30,10 +31,12 @@ export async function POST(req: Request) {
 
         // Single Gemini model call; pick a generally accessible alias
         const modelName = 'gemini-2.0-flash'
-        const { object } = await generateObject({
-            model: google(modelName),
-            schema: QueryResponseSchema,
-            prompt: `
+        const { object } = await withRetry(
+            async () => {
+                return await generateObject({
+                    model: google(modelName),
+                    schema: QueryResponseSchema,
+                    prompt: `
         Analyze this user query and categorize it: "${query}"
         
         Available components and pages:
@@ -62,7 +65,14 @@ export async function POST(req: Request) {
         - "Best restaurants in Delhi" → type: "food", searchQuery: "restaurants Delhi"
         - "What to see in Tokyo" → type: "explore", searchQuery: "Tokyo attractions"
       `,
-        })
+                })
+            },
+            {
+                maxRetries: 2,
+                baseDelay: 500,
+                maxDelay: 4000
+            }
+        )
 
         return Response.json({ success: true, data: object, meta: { model: modelName } })
     } catch (error) {

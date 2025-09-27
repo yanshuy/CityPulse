@@ -242,17 +242,16 @@ export default function PreferencesModal({ open, onClose, onSave }: Props) {
           <div>
             <Label className="text-[color:var(--gumo-muted)]">Primary Transport</Label>
             <div className="flex flex-wrap gap-2 mt-2">
-              {["Driving", "Metro Line B", "Train", "Bus", "Bike", "Walk"].map((opt) => (
+              {["Driving", "Metro", "Train", "Bus", "Bike", "Walk"].map((opt) => (
                 <Button
                   key={opt}
                   type="button"
                   variant={transport === opt ? "default" : "outline"}
                   onClick={() => setTransport(opt)}
-                  className={`h-9 ${
-                    transport === opt
+                  className={`h-9 ${transport === opt
                       ? "bg-[color:var(--gumo-yellow)] text-black"
                       : "border-[color:var(--gumo-navy)] text-[color:var(--gumo-text)]"
-                  }`}
+                    }`}
                 >
                   {opt}
                 </Button>
@@ -270,11 +269,10 @@ export default function PreferencesModal({ open, onClose, onSave }: Props) {
                   <Badge
                     key={tag}
                     onClick={() => toggleInterest(tag)}
-                    className={`cursor-pointer ${
-                      active
+                    className={`cursor-pointer ${active
                         ? "bg-[color:var(--gumo-yellow)] text-black"
                         : "bg-[color:var(--gumo-navy)] text-[color:var(--gumo-text)] border-[color:var(--gumo-navy)]"
-                    }`}
+                      }`}
                   >
                     {tag}
                   </Badge>

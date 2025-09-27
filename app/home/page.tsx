@@ -372,7 +372,9 @@ const Page = () => {
               {React.createElement(weather.icon as React.ElementType, {
                 className: "h-6 w-6 text-[color:var(--gumo-yellow)]",
               })}
-              <span className="text-xl font-semibold text-gumo-text">{weather.temp}°C</span>
+              <span className="text-xl font-semibold text-gumo-text">
+                {weather.temp}°C
+              </span>
             </div>
             <div className="text-xs text-gumo-muted flex items-center gap-2">
               <span>Feels like {weather.feelsLike}°C</span>
@@ -386,7 +388,9 @@ const Page = () => {
       {/* Active Goal Card */}
       <Card className="gumo-card p-4 mb-6">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-lg font-semibold text-gumo-text">Current Goal</h2>
+          <h2 className="text-lg font-semibold text-gumo-text">
+            Upcoming Plan
+          </h2>
           <Button
             variant="ghost"
             size="sm"
@@ -527,9 +531,10 @@ const Page = () => {
         <Button
           variant="outline"
           className="gumo-pill text-gumo-text border-[color:var(--gumo-yellow)]/40 hover:bg-gumo-navy bg-transparent"
+          onClick={() => router.push("/knowledge-graph")}
         >
           <MapPin className="h-4 w-4 mr-2 text-[color:var(--gumo-yellow)]" />
-          New Destination
+          Knowledge Graph
         </Button>
         <Button
           variant="outline"

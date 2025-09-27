@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import { z } from 'zod'
+import { withRetry } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 
@@ -18,10 +19,12 @@ export async function POST(req: Request) {
             return Response.json({ success: false, error: 'API key not configured' }, { status: 500 })
         }
 
-        const { object } = await generateObject({
-            model: google('gemini-2.0-flash'),
-            schema: ClassificationSchema,
-            prompt: `
+        const { object } = await withRetry(
+            async () => {
+                return await generateObject({
+                    model: google('gemini-2.0-flash'),
+                    schema: ClassificationSchema,
+                    prompt: `
         Classify this user query into one of these UI component types:
         
         Query: "${query}"
@@ -44,7 +47,14 @@ export async function POST(req: Request) {
         
         Provide confidence score (0-1) and brief reasoning for classification.
       `,
-        })
+                })
+            },
+            {
+                maxRetries: 2,
+                baseDelay: 500,
+                maxDelay: 4000
+            }
+        )
 
         return Response.json({ success: true, data: object })
     } catch (error) {

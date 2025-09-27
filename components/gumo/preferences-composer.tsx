@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useUser, updateUser } from "@/lib/user-store"
+import { sendUserToVinBackend } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -96,12 +97,19 @@ export function PreferencesComposer({
       setMessage(null)
 
       // persist base user object
-      updateUser({
+      const updatedUserData = {
         username: username.trim(),
         goals: points,
         preferences: interests,
         overrides: user?.overrides || [],
-      })
+      }
+      updateUser(updatedUserData)
+
+      // Send updated user data to VIN backend
+      if (user) {
+        const fullUserData = { ...user, ...updatedUserData }
+        sendUserToVinBackend(fullUserData)
+      }
 
       // evaluate goals with AI using points + interests
       const res = await fetch("/api/preferences/evaluate", {
