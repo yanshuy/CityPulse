@@ -3,29 +3,40 @@
 import { useEffect, useState } from "react"
 import { itineraryDB, type Itinerary } from "@/lib/db/itinerary-db"
 import ItinerarySummaryCardV2 from "@/components/gumo/itinerary-summary-card-v2"
-import { MapPin, Calendar, Trash2, Plus, Settings } from "lucide-react"
-import NotificationSettings from "@/components/notifications/notification-settings"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { MapPin, Calendar, Trash2, Plus } from "lucide-react"
 
 export default function ProfilePage() {
-  const [following, setFollowing] = useState(false)
-  const [tab, setTab] = useState<"posts" | "liked" | "bucket" | "settings">("posts")
   const [itineraries, setItineraries] = useState<Itinerary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     loadItineraries()
   }, [])
 
   const loadItineraries = async () => {
     try {
       setLoading(true)
+      console.log('🔄 Loading itineraries from IndexedDB...')
+      
       await itineraryDB.init()
+      console.log('✅ IndexedDB initialized successfully')
+      
       const savedItineraries = await itineraryDB.getAllItineraries()
+      console.log('📝 Raw itineraries from DB:', savedItineraries)
+      console.log('📊 Total itineraries found:', savedItineraries.length)
+      
+      if (savedItineraries.length > 0) {
+        console.log('🎯 First itinerary sample:', savedItineraries[0])
+      }
+      
       setItineraries(savedItineraries)
     } catch (err) {
-      console.error('Error loading itineraries:', err)
-      setError('Failed to load itineraries')
+      console.error('❌ Error loading itineraries:', err)
+      setError(`Failed to load itineraries: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setLoading(false)
     }
@@ -73,14 +84,14 @@ export default function ProfilePage() {
       {/* Header */}
       <section className="px-4 pt-6 pb-5 rounded-b-[2rem] bg-[color:var(--gumo-surface)]/60">
         <div className="flex items-center gap-4">
-          <div className="grid h-16 w-16 place-items-center rounded-full bg-[color:var(--gumo-yellow)] text-black text-3xl">
+         <div className="grid h-16 w-16 place-items-center rounded-full bg-[color:var(--gumo-yellow)] text-black text-3xl">
             ☺
           </div>
           <div className="flex-1">
             <h1 className="text-2xl font-semibold">Aryan Pandey</h1>
             <p className="text-sm text-white/70">@aryan.pandey</p>
             <p className="mt-1 text-sm">
-              <span className="font-medium">{itineraries.length}</span> Saved Itineraries
+              <span className="font-medium">{mounted ? itineraries.length : 0}</span> Saved Itineraries
             </p>
           </div>
         </div>
@@ -91,12 +102,12 @@ export default function ProfilePage() {
 
         <div className="mt-4 grid grid-cols-2 rounded-2xl bg-black/20 text-center py-3">
           <div>
-            <div className="text-2xl font-semibold">{itineraries.length}</div>
+            <div className="text-2xl font-semibold">{mounted ? itineraries.length : 0}</div>
             <div className="text-xs text-white/70">Total Trips</div>
           </div>
           <div>
             <div className="text-2xl font-semibold">
-              {itineraries.reduce((acc, it) => acc + getTotalDays(it.destinations), 0)}
+              {mounted ? itineraries.reduce((acc, it) => acc + getTotalDays(it.destinations), 0) : 0}
             </div>
             <div className="text-xs text-white/70">Total Days</div>
           </div>
@@ -148,12 +159,12 @@ export default function ProfilePage() {
         ) : (
           <div className="space-y-6">
             {itineraries.map((itinerary) => (
-              <div key={itinerary.id} className="relative group ">
+              <div key={itinerary.id} className="relative group">
                 <ItinerarySummaryCardV2
                   title={itinerary.title}
                   blurb={itinerary.description}
                   bullets={itinerary.highlights}
-                  href={`/itinerary/${itinerary.id}`}
+                  href={`/itinerary?id=${itinerary.id}&readOnly=true`}
                   imageSrc={itinerary.imageSrc}
                 />
 
@@ -188,7 +199,6 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
-
 
       {/* Add some bottom padding for mobile navigation */}
       <div className="h-20" />

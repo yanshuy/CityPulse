@@ -4,10 +4,30 @@ import { TopBar } from "@/components/gumo/top-bar"
 import { BottomNav } from "@/components/gumo/bottom-nav"
 import { APIProvider } from "@vis.gl/react-google-maps"
 import { MapComponent } from "@/components/maps/MapComponent"
+import { ItineraryMapWrapper } from "@/components/maps/ItineraryMapView"
 import { MapPin, Sparkles } from "lucide-react"
+import { useSearchParams } from 'next/navigation'
+import { useMemo } from 'react'
 
 export default function MapsPage() {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ""
+  const searchParams = useSearchParams()
+  
+  // Parse itinerary data from URL params
+  const itineraryData = useMemo(() => {
+    const itineraryParam = searchParams.get('itinerary')
+    if (itineraryParam) {
+      try {
+        return JSON.parse(decodeURIComponent(itineraryParam))
+      } catch (error) {
+        console.error('Error parsing itinerary data:', error)
+        return null
+      }
+    }
+    return null
+  }, [searchParams])
+
+  const isItineraryMode = !!itineraryData
 
   if (!apiKey) {
     return (
@@ -71,22 +91,32 @@ export default function MapsPage() {
       libraries={['places']}
       onLoad={() => console.log('Google Maps API loaded successfully')}
     >
-      <main className="min-h-dvh relative overflow-hidden">
-        {/* Top bar overlay */}
-        <div className="absolute top-0 left-0 right-0 z-20 mx-auto max-w-md w-full px-4 pt-2">
-          <TopBar />
-        </div>
-
-        {/* Full-screen map component */}
-        <MapComponent />
-
-        {/* Bottom navigation */}
-        <div className="fixed inset-x-0 bottom-3 z-30">
-          <div className="mx-auto max-w-md px-4">
-            <BottomNav />
+      {isItineraryMode ? (
+        // Itinerary Map View (full screen without navigation)
+        <ItineraryMapWrapper
+          city={itineraryData.city}
+          days={itineraryData.days}
+          destinations={itineraryData.destinations}
+        />
+      ) : (
+        // Regular Map View with navigation
+        <main className="min-h-dvh relative overflow-hidden">
+          {/* Top bar overlay */}
+          <div className="absolute top-0 left-0 right-0 z-20 mx-auto max-w-md w-full px-4 pt-2">
+            <TopBar />
           </div>
-        </div>
-      </main>
+
+          {/* Full-screen map component */}
+          <MapComponent />
+
+          {/* Bottom navigation */}
+          <div className="fixed inset-x-0 bottom-3 z-30">
+            <div className="mx-auto max-w-md px-4">
+              <BottomNav />
+            </div>
+          </div>
+        </main>
+      )}
     </APIProvider>
   )
 }

@@ -3,7 +3,7 @@
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { BookmarkIcon, CheckIcon, LoaderIcon } from 'lucide-react'
-import { saveItineraryPermanent } from '@/lib/itinerary-storage'
+import { useItineraryStorage } from '@/hooks/use-itinerary-storage'
 import { cn } from '@/lib/utils'
 
 interface SaveItineraryButtonProps {
@@ -26,6 +26,8 @@ export function SaveItineraryButton({
   const [saving, setSaving] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  
+  const { saveItinerary } = useItineraryStorage()
 
   const handleSave = async () => {
     if (!itineraryData) return
@@ -34,14 +36,18 @@ export function SaveItineraryButton({
     setSaving(true)
 
     try {
-      const id = await saveItineraryPermanent(itineraryData)
-      setSaved(true)
-      onSaved?.(id)
+      const id = await saveItinerary(itineraryData)
+      if (id) {
+        setSaved(true)
+        onSaved?.(id)
 
-      // Reset saved state after 3 seconds
-      setTimeout(() => setSaved(false), 3000)
+        // Reset saved state after 3 seconds
+        setTimeout(() => setSaved(false), 3000)
+      } else {
+        throw new Error('Failed to save itinerary')
+      }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save itinerary'
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred'
       setError(errorMessage)
       onError?.(errorMessage)
     } finally {
@@ -92,6 +98,8 @@ export function SaveItineraryIconButton({
   const [saving, setSaving] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  
+  const { saveItinerary } = useItineraryStorage()
 
   const handleSave = async () => {
     if (!itineraryData) return
@@ -100,10 +108,14 @@ export function SaveItineraryIconButton({
     setSaving(true)
 
     try {
-      const id = await saveItineraryPermanent(itineraryData)
-      setSaved(true)
-      onSaved?.(id)
-      setTimeout(() => setSaved(false), 2000)
+      const id = await saveItinerary(itineraryData)
+      if (id) {
+        setSaved(true)
+        onSaved?.(id)
+        setTimeout(() => setSaved(false), 2000)
+      } else {
+        throw new Error('Failed to save itinerary')
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save itinerary'
       setError(errorMessage)

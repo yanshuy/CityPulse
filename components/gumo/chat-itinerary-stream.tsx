@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-itinerary-summary-card"
+import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-summary-card"
 
 type Summary = {
   title: string
@@ -36,12 +36,13 @@ export default function ChatItineraryStream() {
           bullets={s.bullets}
           href={s.href}
           imageSrc={s.imageSrc}
-          chatData={{
+          itineraryData={{
             title: s.title,
             description: s.blurb,
+            destinations: [{ city: s.title.split(' ')[0] || 'Unknown', days: 3 }],
             highlights: s.bullets,
             imageSrc: s.imageSrc,
-            href: s.href
+            chatData: s
           }}
           onSaved={(id) => console.log('Itinerary saved from stream:', id)}
           onError={(error) => console.error('Save failed from stream:', error)}

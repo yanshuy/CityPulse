@@ -80,18 +80,18 @@ export default function ItineraryGenerationLoader({
   }, [onComplete])
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-sm mx-auto">
+    <div className="bg-[color:var(--gumo-surface)] rounded-2xl border border-white/10 p-6 w-full max-w-sm mx-auto">
       {/* Header with spinning loader */}
       <div className="flex items-center justify-center mb-6">
-        <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-200 border-t-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-white/20 border-t-[color:var(--gumo-yellow)]"></div>
       </div>
 
       {/* Loading text */}
       <div className="text-center mb-6">
-        <h3 className="text-lg font-semibold text-gray-800 mb-2">
+        <h3 className="text-lg font-semibold text-[color:var(--gumo-text)] mb-2">
           Creating your itinerary
         </h3>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-[color:var(--gumo-muted)]">
           {days} days in {destination}
         </p>
       </div>
@@ -110,20 +110,20 @@ export default function ItineraryGenerationLoader({
             >
               {/* Status indicator */}
               <div className={`w-4 h-4 rounded-full flex items-center justify-center ${isCompleted
-                  ? 'bg-green-500'
+                  ? 'bg-[color:var(--gumo-yellow)]'
                   : isCurrent
-                    ? 'bg-blue-500 animate-pulse'
-                    : 'bg-gray-200'
+                    ? 'bg-[color:var(--gumo-yellow)]/60 animate-pulse'
+                    : 'bg-white/20'
                 }`}>
                 {isCompleted && (
-                  <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-2.5 h-2.5 text-black" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                   </svg>
                 )}
               </div>
 
               {/* Stage text */}
-              <p className={`text-sm ${isCompleted ? 'text-green-600' : isCurrent ? 'text-blue-600' : 'text-gray-400'
+              <p className={`text-sm ${isCompleted ? 'text-[color:var(--gumo-yellow)]' : isCurrent ? 'text-[color:var(--gumo-text)]' : 'text-[color:var(--gumo-muted)]'
                 }`}>
                 {stage.text}
               </p>
@@ -134,16 +134,16 @@ export default function ItineraryGenerationLoader({
 
       {/* Progress bar */}
       <div className="mt-6">
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-white/20 rounded-full h-2">
           <div
-            className="bg-blue-500 h-2 rounded-full transition-all duration-1000 ease-out"
+            className="bg-[color:var(--gumo-yellow)] h-2 rounded-full transition-all duration-1000 ease-out"
             style={{
-              width: `${((completedStages.size + (currentStage < LOADING_STAGES.length ? 0.5 : 0)) / LOADING_STAGES.length) * 100}%`
+              width: `${Math.min(100, ((completedStages.size + (currentStage < LOADING_STAGES.length ? 0.5 : 0)) / LOADING_STAGES.length) * 100)}%`
             }}
           ></div>
         </div>
-        <p className="text-xs text-gray-500 text-center mt-2">
-          {Math.round(((completedStages.size + (currentStage < LOADING_STAGES.length ? 0.5 : 0)) / LOADING_STAGES.length) * 100)}% complete
+        <p className="text-xs text-[color:var(--gumo-muted)] text-center mt-2">
+          {Math.min(100, Math.round(((completedStages.size + (currentStage < LOADING_STAGES.length ? 0.5 : 0)) / LOADING_STAGES.length) * 100))}% complete
         </p>
       </div>
     </div>

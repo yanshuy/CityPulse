@@ -174,5 +174,7 @@ export interface ItineraryDisplayProps {
     itinerary: GeneratedItinerary
     onEdit?: (itemId: string, day: number) => void
     onRemove?: (itemId: string, day: number) => void
+    onSave?: () => void
+    onShare?: () => void
     onAddSuggestion?: (day: number) => void
 }

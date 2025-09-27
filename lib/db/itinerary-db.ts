@@ -2,14 +2,28 @@
  * IndexedDB utility for storing and managing itineraries
  */
 
+export interface ItineraryPlace {
+  name: string
+  address?: string
+  latitude?: number
+  longitude?: number
+  type?: 'attraction' | 'restaurant' | 'hotel' | 'transport' | 'shopping' | 'other'
+  description?: string
+  rating?: number
+  imageUrl?: string
+}
+
+export interface ItineraryDestination {
+  city: string
+  days: number
+  places?: ItineraryPlace[] // Actual places with coordinates
+}
+
 export interface Itinerary {
   id: string
   title: string
   description: string
-  destinations: Array<{
-    city: string
-    days: number
-  }>
+  destinations: ItineraryDestination[]
   highlights: string[]
   createdAt: number
   updatedAt: number
@@ -163,23 +177,169 @@ class ItineraryDB {
 // Export singleton instance
 export const itineraryDB = new ItineraryDB()
 
+// Sample itineraries with proper place data for testing
+export async function createSampleItineraries(): Promise<void> {
+  const sampleItineraries: Omit<Itinerary, 'id' | 'createdAt' | 'updatedAt'>[] = [
+    {
+      title: "Mumbai Heritage & Culture",
+      description: "Explore the vibrant city of Mumbai with its rich heritage and modern culture",
+      destinations: [
+        {
+          city: "Mumbai",
+          days: 3,
+          places: [
+            { name: "Gateway of India", latitude: 18.9220, longitude: 72.8347, type: "attraction", description: "Iconic monument overlooking the Arabian Sea", rating: 4.5 },
+            { name: "Marine Drive", latitude: 18.9200, longitude: 72.8232, type: "attraction", description: "Famous promenade along the coastline", rating: 4.3 },
+            { name: "Chhatrapati Shivaji Terminus", latitude: 18.9400, longitude: 72.8347, type: "attraction", description: "UNESCO World Heritage Site and historic railway station", rating: 4.4 },
+            { name: "Taj Mahal Palace Hotel", latitude: 18.9216, longitude: 72.8332, type: "hotel", description: "Luxury heritage hotel", rating: 4.8 },
+            { name: "Leopold Cafe", latitude: 18.9220, longitude: 72.8310, type: "restaurant", description: "Famous cafe in Colaba", rating: 4.2 }
+          ]
+        }
+      ],
+      highlights: ["Gateway of India", "Marine Drive", "Heritage Architecture", "Street Food"],
+      imageSrc: "/mumbai-gateway.jpg"
+    },
+    {
+      title: "Rajasthan Royal Experience", 
+      description: "Discover the royal heritage of Rajasthan with palaces and desert adventures",
+      destinations: [
+        {
+          city: "Jaipur",
+          days: 2,
+          places: [
+            { name: "Hawa Mahal", latitude: 26.9239, longitude: 75.8267, type: "attraction", description: "Palace of Winds - iconic pink sandstone structure", rating: 4.6 },
+            { name: "City Palace", latitude: 26.9255, longitude: 75.8235, type: "attraction", description: "Royal residence with museums and courtyards", rating: 4.5 },
+            { name: "Amber Fort", latitude: 26.9855, longitude: 75.8513, type: "attraction", description: "Hilltop fort with stunning architecture", rating: 4.7 }
+          ]
+        },
+        {
+          city: "Udaipur",
+          days: 2,
+          places: [
+            { name: "Lake Palace", latitude: 24.5760, longitude: 73.6811, type: "attraction", description: "Floating palace on Lake Pichola", rating: 4.8 },
+            { name: "City Palace Udaipur", latitude: 24.5761, longitude: 73.6833, type: "attraction", description: "Magnificent palace complex", rating: 4.6 },
+            { name: "Jagdish Temple", latitude: 24.5784, longitude: 73.6833, type: "attraction", description: "Historic Hindu temple", rating: 4.4 }
+          ]
+        }
+      ],
+      highlights: ["Royal Palaces", "Desert Culture", "Traditional Crafts", "Rajasthani Cuisine"],
+      imageSrc: "/rajasthan-palace.jpg"
+    },
+    {
+      title: "Goa Beach Paradise",
+      description: "Relax and unwind in the beautiful beaches of Goa",
+      destinations: [
+        {
+          city: "Goa",
+          days: 4,
+          places: [
+            { name: "Baga Beach", latitude: 15.5559, longitude: 73.7516, type: "attraction", description: "Popular beach known for water sports and nightlife", rating: 4.3 },
+            { name: "Basilica of Bom Jesus", latitude: 15.5008, longitude: 73.9115, type: "attraction", description: "UNESCO World Heritage Site and historic church", rating: 4.5 },
+            { name: "Anjuna Beach", latitude: 15.5734, longitude: 73.7395, type: "attraction", description: "Famous for flea markets and parties", rating: 4.2 },
+            { name: "Fort Aguada", latitude: 15.4942, longitude: 73.7736, type: "attraction", description: "17th-century Portuguese fort", rating: 4.4 },
+            { name: "Fisherman's Wharf", latitude: 15.5031, longitude: 73.9142, type: "restaurant", description: "Waterfront restaurant with Goan cuisine", rating: 4.6 }
+          ]
+        }
+      ],
+      highlights: ["Pristine Beaches", "Portuguese Architecture", "Water Sports", "Seafood Cuisine"],
+      imageSrc: "/goa-beach.jpg"
+    }
+  ]
+
+  // Add sample itineraries to the database
+  for (const itinerary of sampleItineraries) {
+    try {
+      await itineraryDB.saveItinerary(itinerary)
+      console.log(`Created sample itinerary: ${itinerary.title}`)
+    } catch (error) {
+      console.error(`Failed to create sample itinerary: ${itinerary.title}`, error)
+    }
+  }
+}
+
 // Utility function to generate sample itinerary data
 export function createItineraryFromChat(chatData: any): Omit<Itinerary, 'id' | 'createdAt' | 'updatedAt'> {
-  // This would parse chat data and extract itinerary information
-  // For now, we'll return a template structure
-  const destinations = chatData.destinations || [{ city: 'Bangkok', days: 3 }]
-  const mainCity = destinations[0]?.city || 'Unknown City'
-  
+  // Enhanced parser that preserves full day-by-day GeneratedItinerary structures
+  // while still supporting earlier lightweight chat summary formats.
+
+  if (!chatData || typeof chatData !== 'object') {
+    return {
+      title: 'Trip Plan',
+      description: 'A curated travel experience awaits.',
+      destinations: [{ city: 'Unknown', days: 3 }],
+      highlights: ['Explore landmarks', 'Taste local food', 'Enjoy culture'],
+      imageSrc: undefined,
+      chatData
+    }
+  }
+
+  // CASE 1: Full GeneratedItinerary shape (has days array with items)
+  const looksLikeGenerated = Array.isArray(chatData.days) && chatData.days.length > 0 &&
+    chatData.days[0] && Array.isArray(chatData.days[0].items)
+
+  if (looksLikeGenerated) {
+    const city = chatData.destination || chatData.destinations?.[0]?.city || 'Unknown'
+    const totalDays = chatData.days.length
+
+    return {
+      title: chatData.title || `Trip to ${city}`,
+      description: chatData.overview || chatData.description || `Explore the amazing city of ${city} with this carefully crafted itinerary.`,
+      destinations: [{ city, days: totalDays }],
+      highlights: chatData.generalTips || chatData.highlights || [
+        'Visit iconic landmarks',
+        'Experience local cuisine',
+        'Discover hidden gems'
+      ],
+      imageSrc: chatData.imageSrc || chatData.image,
+      // Preserve the entire generated itinerary so the viewer page can reconstruct it
+      chatData
+    }
+  }
+
+  // CASE 2: Newer chat summary format with destinations array already
+  if (Array.isArray(chatData.destinations) && chatData.destinations.length > 0) {
+    return {
+      title: chatData.title || `Trip to ${chatData.destinations[0].city}`,
+      description: chatData.description || `Explore the amazing city of ${chatData.destinations[0].city} with this carefully crafted itinerary.`,
+      destinations: chatData.destinations,
+      highlights: chatData.highlights || [
+        'Visit iconic landmarks',
+        'Experience local cuisine',
+        'Discover hidden gems'
+      ],
+      imageSrc: chatData.imageSrc || chatData.image,
+      chatData
+    }
+  }
+
+  // CASE 3: Minimal planner data (destination + days)
+  if (chatData.destination && chatData.days) {
+    return {
+      title: chatData.title || chatData.suggestedTitle || `Trip to ${chatData.destination}`,
+      description: chatData.description || chatData.overview || `Explore the amazing city of ${chatData.destination} with this carefully crafted itinerary.`,
+      destinations: [{ city: chatData.destination, days: chatData.days }],
+      highlights: chatData.highlights || chatData.generalTips || [
+        'Visit iconic landmarks',
+        'Experience local cuisine',
+        'Discover hidden gems'
+      ],
+      imageSrc: chatData.imageSrc || chatData.image,
+      chatData
+    }
+  }
+
+  // Fallback legacy behaviour
+  const destinations = [{ city: 'Bangkok', days: 3 }]
   return {
-    title: chatData.title || `Trip to ${mainCity}`,
-    description: chatData.description || `Explore the amazing city of ${mainCity} with this carefully crafted itinerary.`,
+    title: chatData.title || `Trip to ${destinations[0].city}`,
+    description: chatData.description || `Explore the amazing city of ${destinations[0].city} with this carefully crafted itinerary.`,
     destinations,
     highlights: chatData.highlights || [
       'Visit iconic landmarks',
       'Experience local cuisine',
       'Discover hidden gems'
     ],
-    imageSrc: chatData.imageSrc,
+    imageSrc: chatData.imageSrc || chatData.image,
     chatData
   }
 }

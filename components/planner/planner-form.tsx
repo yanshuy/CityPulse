@@ -2,9 +2,10 @@
 import { useState, useMemo } from "react"
 import type React from "react"
 import { useRouter } from "next/navigation"
-import { SaveItineraryButton } from "@/components/itinerary/save-itinerary-button"
+// Removed early SaveItineraryButton to avoid saving incomplete (no day plan) itineraries
 import { PlannerFormProps } from "@/lib/types/component-schemas"
-import { saveItinerary } from "@/lib/itinerary-storage"
+import { useItineraryStorage } from "@/hooks/use-itinerary-storage"
+import { SaveItineraryButton } from "@/components/itinerary/save-itinerary-button"
 
 type Destination = {
   id: string
@@ -71,6 +72,12 @@ export default function PlannerForm({ data }: PlannerFormProps) {
     setNewCity("")
   }
 
+  const { saveItinerary: persistItinerary } = useItineraryStorage()
+  const [generatedItinerary, setGeneratedItinerary] = useState<any | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [genError, setGenError] = useState<string | null>(null)
+  const [savedItineraryId, setSavedItineraryId] = useState<string | null>(null)
+
   async function onNext() {
     const first = destinations[0]
 
@@ -93,6 +100,8 @@ export default function PlannerForm({ data }: PlannerFormProps) {
     }
 
     try {
+      setGenError(null)
+      setGenerating(true)
       // Generate AI itinerary
       const response = await fetch('/api/generate-itinerary', {
         method: 'POST',
@@ -114,27 +123,13 @@ export default function PlannerForm({ data }: PlannerFormProps) {
       }
 
       const itinerary = result.data
-
-      // Save itinerary to storage and build URL with ID
-      const itineraryId = saveItinerary(itinerary)
-      const href = `/itinerary?id=${itineraryId}`      // Fire event with generated itinerary data
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(
-          new CustomEvent("gumo:add-itinerary-summary", {
-            detail: {
-              title: itinerary.title,
-              blurb: itinerary.overview,
-              bullets: itinerary.days[0]?.items.slice(0, 3).map((item: any) => item.name) || itinerary.generalTips.slice(0, 3),
-              href,
-              imageSrc: "/images/reference/itinerary-summary-user.png",
-              itinerary // Include full itinerary data
-            },
-          }),
-        )
-      }
+      const hasDays = Array.isArray(itinerary?.days) && itinerary.days.length > 0 && Array.isArray(itinerary.days[0]?.items)
+      if (!hasDays) throw new Error('Generated itinerary missing day-by-day structure')
+      setGeneratedItinerary(itinerary)
 
     } catch (error) {
       console.error('Failed to generate itinerary:', error)
+      setGenError(error instanceof Error ? error.message : 'Failed to generate itinerary')
 
       // Show error state
       if (typeof window !== "undefined") {
@@ -146,6 +141,8 @@ export default function PlannerForm({ data }: PlannerFormProps) {
           }),
         )
       }
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -251,36 +248,60 @@ export default function PlannerForm({ data }: PlannerFormProps) {
           </button>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-2">
-          {/* Left side: Save Itinerary Button */}
-          <SaveItineraryButton
-            itineraryData={{
-              title: data?.suggestedTitle || `${finalDays}-day ${finalDestination} Trip`,
-              description: data?.description || `Explore ${finalDestination} in ${finalDays} days`,
-              destination: finalDestination,
-              days: finalDays,
-              destinations: [{ city: finalDestination, days: finalDays }],
-              highlights: data?.highlights || [],
-              bestTimeToVisit: data?.bestTimeToVisit,
-              estimatedBudget: data?.estimatedBudget,
-              suggestedActivities: data?.suggestedActivities,
-              chatData: data
-            }}
-            variant="outline"
-            size="sm"
-            onSaved={(id) => console.log('Itinerary saved:', id)}
-            onError={(error) => console.error('Save failed:', error)}
-          />
-
-          {/* Right side: Action buttons */}
-          <div className="flex gap-2">
-            <button type="button" className={`${outline} rounded-xl px-4 py-2 text-sm`} onClick={() => history.back()}>
+        <div className="mt-4 flex flex-col gap-4">
+          {genError && (
+            <div className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 rounded-lg p-2">
+              {genError}
+            </div>
+          )}
+          <div className="flex items-center justify-end gap-2">
+            <button type="button" className={`${outline} rounded-xl px-4 py-2 text-sm`} onClick={() => history.back()} disabled={generating}>
               Cancel
             </button>
-            <button type="button" className={`${primary} rounded-xl px-4 py-2 text-sm`} onClick={onNext}>
-              Next
+            <button type="button" className={`${primary} rounded-xl px-4 py-2 text-sm disabled:opacity-50`} onClick={onNext} disabled={generating}>
+              {generating ? 'Generating...' : (generatedItinerary ? 'Regenerate' : 'Generate Itinerary')}
             </button>
           </div>
+          {generatedItinerary && (
+            <div className="flex items-center justify-between gap-3 border border-white/10 rounded-xl p-3 bg-background/40">
+              <div className="text-xs text-foreground/60 flex-1">
+                <div className="font-medium text-foreground/80 mb-1">Itinerary ready</div>
+                <div>{generatedItinerary.title}</div>
+                <div className="mt-1">Days: {generatedItinerary.days.length}</div>
+              </div>
+              {savedItineraryId ? (
+                <a
+                  href={`/itinerary?id=${savedItineraryId}&readOnly=true`}
+                  className="px-4 py-2 rounded-xl text-sm font-medium bg-yellow-400 text-black hover:bg-yellow-300 transition-colors"
+                >
+                  View Full Itinerary
+                </a>
+              ) : (
+                <SaveItineraryButton
+                  itineraryData={generatedItinerary}
+                  variant="outline"
+                  size="sm"
+                  onSaved={(id) => {
+                    setSavedItineraryId(id)
+                    const href = `/itinerary?id=${id}&readOnly=true`
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new CustomEvent('gumo:add-itinerary-summary', {
+                        detail: {
+                          title: generatedItinerary.title,
+                          blurb: generatedItinerary.overview,
+                          bullets: generatedItinerary.days[0]?.items.slice(0, 3).map((item: any) => item.name) || generatedItinerary.generalTips.slice(0, 3),
+                          href,
+                          imageSrc: '/images/reference/itinerary-summary-user.png',
+                          itinerary: generatedItinerary
+                        }
+                      }))
+                    }
+                  }}
+                  onError={(e) => console.error('Save failed:', e)}
+                />
+              )}
+            </div>
+          )}
         </div>
       </SectionCard>
 

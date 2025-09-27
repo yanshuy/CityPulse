@@ -127,7 +127,7 @@ export function extractItineraryFromChat(chatData: any) {
 function createBasicItineraryFromText(text: string) {
   // Basic text parsing to extract some information
   const lines = text.split('\n').filter(line => line.trim())
-  const title = lines[0] || 'My Travel Plan'
+  const title = lines[0] || 'My Travel Profile'
   
   // Try to find city names (very basic pattern matching)
   const cityMatches = text.match(/(?:to|in|visit|exploring)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)/gi)
