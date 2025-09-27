@@ -59,6 +59,7 @@
     "next-pwa": "latest",
     "next-themes": "latest",
     "path": "latest",
+    "puppeteer": "^24.22.3",
     "react": "^18",
     "react-day-picker": "9.8.0",
     "react-dom": "^18",

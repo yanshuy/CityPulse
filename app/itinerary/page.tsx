@@ -2,12 +2,14 @@
 
 import { useSearchParams, useRouter } from "next/navigation"
 import { useMemo, useState, useEffect } from "react"
+import Link from "next/link"
 import ItineraryDisplay from "@/components/itinerary/dynamic-itinerary-display"
 import EditItineraryModal from "@/components/itinerary/edit-itinerary-modal"
 import { GeneratedItinerary, ItineraryItem } from "@/lib/types/component-schemas"
 import { getItinerary, saveItinerary } from "@/lib/itinerary-storage"
 import { itineraryDB, type Itinerary } from "@/lib/db/itinerary-db"
 import { convertStoredItineraryToGenerated } from '@/lib/itinerary/normalize'
+import { Download } from "lucide-react"
 
 // Conversion moved to shared util `convertStoredItineraryToGenerated`.
 
@@ -52,7 +54,7 @@ export default function ItineraryPage() {
             setItinerary(oldItineraryData)
             return
           }
-          
+
           setError('Itinerary not found in either storage system')
         } else {
           // Fallback: check for old URL format
@@ -84,6 +86,7 @@ export default function ItineraryPage() {
   const router = useRouter()
   const [editingItem, setEditingItem] = useState<{ itemId: string; day: number } | null>(null)
   const [currentItinerary, setCurrentItinerary] = useState<GeneratedItinerary | null>(itinerary)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   const handleEdit = (itemId: string, day: number) => {
     setEditingItem({ itemId, day })
@@ -175,6 +178,56 @@ export default function ItineraryPage() {
     router.replace(newUrl, { scroll: false })
   }
 
+  const downloadItinerary = async () => {
+    try {
+      setIsDownloading(true)
+      const itineraryToDownload = currentItinerary || itinerary
+
+      if (!itineraryToDownload) {
+        console.error('No itinerary to download')
+        return
+      }
+
+      const response = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ itinerary: itineraryToDownload }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate PDF')
+      }
+
+      // Get the HTML content
+      const htmlContent = await response.text()
+
+      // Create a blob and open it in a new window for PDF printing
+      const blob = new Blob([htmlContent], { type: 'text/html' })
+      const url = window.URL.createObjectURL(blob)
+
+      // Open in new window/tab for auto-print functionality
+      const printWindow = window.open(url, '_blank')
+
+      // Cleanup the blob URL after a delay
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url)
+      }, 5000)
+
+      // Focus the new window if it opened successfully
+      if (printWindow) {
+        printWindow.focus()
+      }
+    } catch (error) {
+      console.error('Error downloading itinerary:', error)
+      // You might want to show a toast notification here
+      alert('Failed to generate PDF. Please try again.')
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   const getCurrentEditingItem = (): ItineraryItem | undefined => {
     if (!editingItem || !currentItinerary) return undefined
 
@@ -203,12 +256,12 @@ export default function ItineraryPage() {
           <p className="text-white/70 mb-6">
             {error || 'This itinerary link is invalid or expired. Please generate a new one.'}
           </p>
-          <a
+          <Link
             href="/"
             className="px-6 py-3 bg-[color:var(--gumo-yellow)] text-black rounded-xl font-medium hover:brightness-110 transition-all"
           >
             Generate New Itinerary
-          </a>
+          </Link>
         </div>
       </div>
     )
@@ -230,13 +283,29 @@ export default function ItineraryPage() {
         {/* Itinerary Display */}
         {/* Actions Row */}
         {(currentItinerary || itinerary)?.days?.length > 0 && (
-          <div className="mb-4 flex justify-end gap-2">
+          <div className="mb-4 flex gap-2">
             <a
               href={`/itinerary/map?id=${(currentItinerary || itinerary).id}`}
               className="px-4 py-2 rounded-lg bg-[color:var(--gumo-yellow)] text-black text-sm font-medium hover:brightness-110 transition-colors"
             >
               Map View
             </a>
+            <button
+              onClick={downloadItinerary}
+              disabled={isDownloading}
+              className="px-4 py-2 rounded-lg bg-[color:var(--gumo-yellow)] flex gap-1 text-black text-sm font-medium hover:brightness-110 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDownloading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-black"></div>
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="size-4" /> Download
+                </>
+              )}
+            </button>
           </div>
         )}
 

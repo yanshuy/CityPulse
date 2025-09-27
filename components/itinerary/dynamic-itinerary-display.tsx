@@ -11,31 +11,31 @@ function generatePlaceImageUrl(item: ItineraryItem): string {
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, '') // Remove special characters
         .replace(/\s+/g, '+') // Replace spaces with +
-    
+
     // Get location context (if available in item.location)
-    const location = item.location ? 
+    const location = item.location ?
         item.location.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '+') : ''
-    
+
     // First try: Use curated photo IDs for famous Indian landmarks
     const curatedPhotos = getCuratedPhotoId(item.name, item.type);
     if (curatedPhotos) {
         return `https://images.unsplash.com/photo-${curatedPhotos}?w=200&h=200&fit=crop&crop=center&auto=format&q=80`;
     }
-    
+
     // Second try: Build search query for location-specific images
     let searchTerms = [];
-    
+
     // Add location-specific terms first (most important)
     if (location) {
         searchTerms.push(location);
     }
-    
+
     // Add the place name if it's not too generic
     const genericNames = ['restaurant', 'hotel', 'cafe', 'shop', 'market', 'temple', 'palace'];
     if (!genericNames.some(generic => cleanName.includes(generic))) {
         searchTerms.push(cleanName);
     }
-    
+
     // Add type-specific terms
     switch (item.type) {
         case 'restaurant':
@@ -56,10 +56,10 @@ function generatePlaceImageUrl(item: ItineraryItem): string {
         default:
             searchTerms.push('india', 'travel', 'destination');
     }
-    
+
     // Build the final search query (limit to 2-3 terms for better results)
     const query = searchTerms.slice(0, 3).join('+');
-    
+
     // Return Unsplash search URL
     return `https://images.unsplash.com/1600x900/?${query}&auto=format&fit=crop&w=200&h=200&q=80`;
 }
@@ -67,7 +67,7 @@ function generatePlaceImageUrl(item: ItineraryItem): string {
 // Curated photo IDs for famous places to ensure accuracy
 function getCuratedPhotoId(placeName: string, type: string): string | null {
     const name = placeName.toLowerCase();
-    
+
     // Famous Indian landmarks and their actual Unsplash photo IDs
     const curatedPlaces: Record<string, string> = {
         // Mumbai
@@ -78,49 +78,49 @@ function getCuratedPhotoId(placeName: string, type: string): string | null {
         'cst': '1587474887464-cd2c4ca95f1c',
         'taj mahal palace hotel': '1566552969926-9f4a9f6f9e2a',
         'elephanta caves': '1506905925346-21bda4d32df4',
-        
+
         // Delhi  
         'red fort': '1587474887464-cd2c4ca95f1c',
         'india gate': '1587474734-5b3c23e8b5b2',
         'lotus temple': '1506905925346-21bda4d32df4',
         'qutub minar': '1506905925346-21bda4d32df4',
         'humayuns tomb': '1587474734-5b3c23e8b5b2',
-        
+
         // Rajasthan
         'hawa mahal': '1549144511-f099e773c147',
         'city palace jaipur': '1549144511-f099e773c147',
         'amber fort': '1549144511-f099e773c147',
         'lake palace udaipur': '1506905925346-21bda4d32df4',
         'city palace udaipur': '1506905925346-21bda4d32df4',
-        
+
         // Kerala
         'backwaters': '1506905925346-21bda4d32df4',
         'munnar': '1506905925346-21bda4d32df4',
-        
+
         // Goa
         'baga beach': '1506905925346-21bda4d32df4',
         'anjuna beach': '1506905925346-21bda4d32df4',
         'basilica of bom jesus': '1506905925346-21bda4d32df4',
-        
+
         // Generic by type
         'indian restaurant': '1414235077653-2534da808646',
         'street food': '1414235077653-2534da808646',
         'local market': '1506905925346-21bda4d32df4',
         'spice market': '1414235077653-2534da808646',
     };
-    
+
     // Check for exact matches first
     if (curatedPlaces[name]) {
         return curatedPlaces[name];
     }
-    
+
     // Check for partial matches
     for (const [place, photoId] of Object.entries(curatedPlaces)) {
         if (name.includes(place.split(' ')[0]) || place.includes(name.split(' ')[0])) {
             return photoId;
         }
     }
-    
+
     return null;
 }
 
@@ -197,14 +197,14 @@ function ItineraryItemCard({
                     <div className="flex gap-3">
                         {/* Actual place image */}
                         <div className="w-16 h-16 rounded-lg flex-shrink-0 overflow-hidden">
-                            <img 
+                            <img
                                 src={generatePlaceImageUrl(item)}
                                 alt={item.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                     // Enhanced fallback system
                                     const target = e.currentTarget;
-                                    
+
                                     // First fallback: Try type-specific curated image
                                     if (!target.dataset.fallbackAttempted) {
                                         target.dataset.fallbackAttempted = 'true';
@@ -219,7 +219,7 @@ function ItineraryItemCard({
                                         target.src = `https://images.unsplash.com/photo-${photoId}?w=200&h=200&fit=crop&crop=center&auto=format&q=80`;
                                         return;
                                     }
-                                    
+
                                     // Final fallback: Generic travel image
                                     target.src = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=200&h=200&fit=crop&crop=center&auto=format&q=80';
                                 }}
@@ -323,11 +323,6 @@ export default function ItineraryDisplay({
 }: ItineraryDisplayProps & { readOnly?: boolean }) {
     const [selectedDay, setSelectedDay] = useState<number>(1)
 
-    // Debug logging
-    console.log('🎯 ItineraryDisplay received:', itinerary);
-    console.log('📅 Days data:', itinerary?.days);
-    console.log('🔍 Is days array?', Array.isArray(itinerary?.days));
-
     if (!itinerary || !Array.isArray(itinerary.days) || itinerary.days.length === 0) {
         return (
             <div className="w-full max-w-2xl mx-auto bg-black text-white p-6 rounded-xl border border-white/5">
@@ -338,12 +333,12 @@ export default function ItineraryDisplay({
                     <p className="text-xs text-white/40">Save the itinerary again after generation to preserve full day plans.</p>
                 </div>
                 {itinerary?.generalTips && itinerary.generalTips.length > 0 && (
-                  <div className="mt-6 text-sm">
-                    <h2 className="font-medium mb-2 text-white/80">General Tips</h2>
-                    <ul className="list-disc list-inside space-y-1 text-white/60">
-                      {itinerary.generalTips.slice(0,6).map((tip, i) => <li key={i}>{tip}</li>)}
-                    </ul>
-                  </div>
+                    <div className="mt-6 text-sm">
+                        <h2 className="font-medium mb-2 text-white/80">General Tips</h2>
+                        <ul className="list-disc list-inside space-y-1 text-white/60">
+                            {itinerary.generalTips.slice(0, 6).map((tip, i) => <li key={i}>{tip}</li>)}
+                        </ul>
+                    </div>
                 )}
             </div>
         )
@@ -354,18 +349,17 @@ export default function ItineraryDisplay({
             {/* Header */}
             <div className="mb-6">
                 <h1 className="text-2xl font-bold text-white mb-4">{itinerary.title}</h1>
-                
+
                 {/* Day Selector */}
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                     {itinerary.days.map((day) => (
                         <button
                             key={day.day}
                             onClick={() => setSelectedDay(day.day)}
-                            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-                                selectedDay === day.day
+                            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${selectedDay === day.day
                                     ? 'bg-[color:var(--gumo-yellow)] text-black'
                                     : 'bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700'
-                            }`}
+                                }`}
                         >
                             Day {day.day}
                         </button>
