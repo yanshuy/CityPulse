@@ -90,14 +90,21 @@ async function idbSet(value: GlobalUser): Promise<void> {
 
 function writeToStorage(value: GlobalUser) {
   if (typeof window === "undefined") return
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
+  } catch (error) {
+    console.warn("Failed to write to localStorage:", error)
+  }
   // best-effort IndexedDB write
   idbSet(value).catch(() => {
     // silently ignore IDB write errors
   })
 }
 
+// Store current state in memory to avoid async issues with useSyncExternalStore
+let currentUser: GlobalUser | null = null
 let initializedFromIDB = false
+
 async function initFromIndexedDBOnce() {
   if (typeof window === "undefined" || initializedFromIDB) return
   initializedFromIDB = true
@@ -109,41 +116,68 @@ async function initFromIndexedDBOnce() {
       const lsStr = ls ? JSON.stringify(ls) : ""
       const idbStr = JSON.stringify(idb)
       if (lsStr !== idbStr) {
+        currentUser = idb
         writeToStorage(idb)
         listeners.forEach((l) => l())
+      } else if (!currentUser) {
+        currentUser = idb
       }
     } else if (ls) {
+      currentUser = ls
       // seed IndexedDB from localStorage
-      idbSet(ls).catch(() => {})
+      idbSet(ls).catch(() => { })
     }
   } catch {
     // ignore hydration errors
+    currentUser = readFromStorage()
   }
 }
 
-const store: Store = {
-  get: async () => {
-    if (!initializedFromIDB) {
-      await initFromIndexedDBOnce()
+// Initialize currentUser from localStorage on first load
+if (typeof window !== "undefined" && currentUser === null) {
+  currentUser = readFromStorage()
+
+  // Listen for storage events to handle localStorage clearing
+  window.addEventListener('storage', (e) => {
+    if (e.key === STORAGE_KEY) {
+      if (e.newValue === null) {
+        // localStorage was cleared
+        currentUser = null
+        listeners.forEach((l) => l())
+      } else {
+        // localStorage was updated from another tab
+        try {
+          const newUser = JSON.parse(e.newValue) as GlobalUser
+          currentUser = newUser
+          listeners.forEach((l) => l())
+        } catch {
+          // ignore invalid JSON
+        }
+      }
     }
-    return await idbGet()
+  })
+}
+
+const store: Store = {
+  get: () => {
+    return currentUser
   },
   set: (next) => {
-    const current = store.get()
-    const value = typeof next === "function" ? (next as any)(current) : next
+    const value = typeof next === "function" ? (next as any)(currentUser) : next
+    currentUser = value
     writeToStorage(value)
     listeners.forEach((l) => l())
   },
   update: (patch) => {
-    const current = store.get()
     const merged: GlobalUser = {
-      username: current?.username || "",
-      goals: current?.goals || [],
-      preferences: current?.preferences || [],
-      overrides: current?.overrides || [],
-      ai: current?.ai,
+      username: currentUser?.username || "",
+      goals: currentUser?.goals || [],
+      preferences: currentUser?.preferences || [],
+      overrides: currentUser?.overrides || [],
+      ai: currentUser?.ai,
       ...patch,
     }
+    currentUser = merged
     writeToStorage(merged)
     listeners.forEach((l) => l())
   },
@@ -165,22 +199,42 @@ export function updateUser(patch: Partial<GlobalUser>) {
   store.update(patch)
 }
 
+// Cache server snapshot to prevent hydration mismatches
+const defaultUser: GlobalUser = {
+  username: "",
+  goals: [],
+  preferences: [],
+  overrides: [],
+}
+
+let cachedServerSnapshot: GlobalUser | null = null
+
+function getServerSnapshot(): GlobalUser | null {
+  if (cachedServerSnapshot === null) {
+    cachedServerSnapshot = defaultUser
+  }
+  return cachedServerSnapshot
+}
+
 export function useUser() {
-  const snapshot = useSyncExternalStore(store.subscribe, store.get, store.get)
+  const snapshot = useSyncExternalStore(
+    store.subscribe,
+    store.get,
+    getServerSnapshot
+  )
+
   // ensure a stable non-null object for easier consumption in components
   const user = useMemo<GlobalUser>(() => {
     return (
-      snapshot ?? {
-        username: "",
-        goals: [],
-        preferences: [],
-        overrides: [],
-      }
+      snapshot ?? defaultUser
     )
   }, [snapshot])
 
   useEffect(() => {
-    initFromIndexedDBOnce()
+    // Initialize from IndexedDB on client side only
+    if (typeof window !== "undefined") {
+      initFromIndexedDBOnce()
+    }
   }, [])
 
   return {
