@@ -7,10 +7,12 @@ import {
   Search, X, ChevronUp, ChevronDown, Navigation, MapPin, ArrowLeft, 
   Car, Star, Clock, ArrowRight, Layers, AlertTriangle, Calendar,
   Zap, Coffee, Bus, Construction, Music, MapPinIcon, Users, Wifi,
-  Bike, Train, PersonStanding
+  Bike, Train, PersonStanding, ChevronLeft, ChevronRight, Share2
 } from "lucide-react"
 import GetUserLocation from "@/components/maps/GetUserLocation"
 import { ResizableDrawer } from "@/components/ui/resizable-drawer"
+import { itineraryDB, Itinerary, ItineraryPlace } from "@/lib/db/itinerary-db"
+import ItinerarySummaryCardV2 from "@/components/gumo/itinerary-summary-card-v2"
 
 // Demo data for different map layers
 export interface CityLocation {
@@ -178,11 +180,57 @@ const DEMO_DATA = {
       time: "3 mins", 
       address: "Hill Road, Bandra West"
     }
+  ],
+
+  // Itinerary Layer - day-by-day destinations
+  itinerary: [
+    {
+      id: "itinerary-1",
+      name: "Museum of Himachal Culture & Folk Art",
+      latitude: 32.2430,
+      longitude: 77.1892,
+      type: 'attraction' as const,
+      category: 'day-1',
+      description: "Rich collection of Himachali artifacts and traditional art",
+      rating: 4.1,
+      time: "9:20 AM",
+      distance: "0 km",
+      address: "Manali, Himachal Pradesh",
+      status: 'active' as const
+    },
+    {
+      id: "itinerary-2", 
+      name: "Hadimba Devi Temple",
+      latitude: 32.2396,
+      longitude: 77.1887,
+      type: 'attraction' as const,
+      category: 'day-1',
+      description: "Ancient cave temple dedicated to Hidimbi Devi",
+      rating: 4.5,
+      time: "12:30 PM",
+      distance: "1.2 km",
+      address: "Manali, Himachal Pradesh", 
+      status: 'active' as const
+    },
+    {
+      id: "itinerary-3",
+      name: "Mall Road Manali",
+      latitude: 32.2432,
+      longitude: 77.1892,
+      type: 'shopping' as const,
+      category: 'day-2',
+      description: "Main shopping and dining street of Manali",
+      rating: 4.3,
+      time: "10:00 AM",
+      distance: "0.8 km", 
+      address: "Manali, Himachal Pradesh",
+      status: 'scheduled' as const
+    }
   ]
 }
 
 // Layer visibility state
-type LayerType = 'transport' | 'incidents' | 'events' | 'places' | 'heatmap'
+type LayerType = 'transport' | 'incidents' | 'events' | 'places' | 'itinerary' | 'heatmap'
 
 const LayerMarker = ({
   location,
@@ -205,6 +253,8 @@ const LayerMarker = ({
         return <Coffee className="w-4 h-4" />
       case 'shopping':
         return <MapPin className="w-4 h-4" />
+      case 'attraction':
+        return <Star className="w-4 h-4" />
       case 'other': // Searched locations
         return <MapPin className="w-4 h-4" />
       default:
@@ -227,6 +277,7 @@ const LayerMarker = ({
       case 'event': return '#8b5cf6'
       case 'restaurant': return '#10b981'
       case 'shopping': return '#f59e0b'
+      case 'attraction': return '#F1C40F' // Yellow for attractions in itinerary
       case 'other': return '#F1C40F' // Yellow for searched locations
       default: return '#F1C40F' // Default to yellow to match theme
     }
@@ -359,6 +410,163 @@ export const MapComponent: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedLayer, setSelectedLayer] = useState<LayerType>('transport')
   const [isLayerDropdownOpen, setIsLayerDropdownOpen] = useState(false)
+
+  // Check for layer parameter from URL and itinerary ID
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const layerParam = urlParams.get('layer')
+      const itineraryParam = urlParams.get('itinerary')
+      
+      if (layerParam && ['transport', 'incidents', 'events', 'places', 'itinerary'].includes(layerParam)) {
+        setSelectedLayer(layerParam as LayerType)
+        
+        // If itinerary layer is selected from URL, load specific itinerary if provided
+        if (layerParam === 'itinerary' && itineraryParam) {
+          setSelectedItineraryId(itineraryParam)
+        }
+      }
+    }
+  }, [])
+
+  // Load itineraries from IndexedDB when itinerary layer is selected
+  React.useEffect(() => {
+    if (selectedLayer === 'itinerary') {
+      loadItinerariesFromDB()
+    }
+  }, [selectedLayer])
+
+  const loadItinerariesFromDB = async () => {
+    try {
+      setItineraryLoading(true)
+      const itineraries = await itineraryDB.getAllItineraries()
+      setLoadedItineraries(itineraries)
+    } catch (error) {
+      console.error('Error loading itineraries:', error)
+    } finally {
+      setItineraryLoading(false)
+    }
+  }
+
+  // Convert IndexedDB itinerary to CityLocation format for map display
+  const convertItineraryToLocations = (itinerary: Itinerary): CityLocation[] => {
+    const locations: CityLocation[] = []
+    
+    itinerary.destinations.forEach((dest, destIndex) => {
+      if (dest.places && dest.places.length > 0) {
+        // Use actual places with coordinates if available
+        dest.places.forEach((place, placeIndex) => {
+          // Map ItineraryPlace type to CityLocation type
+          const mapPlaceType = (placeType?: string): CityLocation['type'] => {
+            switch (placeType) {
+              case 'hotel': return 'other'
+              case 'restaurant': return 'restaurant'
+              case 'attraction': return 'attraction'
+              case 'transport': return 'transport'
+              case 'shopping': return 'shopping'
+              default: return 'attraction'
+            }
+          }
+
+          // IMPORTANT: category must match filtering logic elsewhere (day-X)
+          locations.push({
+            id: `${itinerary.id}-${destIndex}-${placeIndex}`,
+            name: place.name,
+            latitude: place.latitude || getDefaultCityCoordinates(dest.city).lat,
+            longitude: place.longitude || getDefaultCityCoordinates(dest.city).lng,
+            type: mapPlaceType(place.type),
+            category: `day-${Math.floor(placeIndex / 3) + 1}`, // Group places by day (assuming 3 places per day)
+            description: place.description || `Visit ${place.name} in ${dest.city}`,
+            rating: place.rating || 4.0,
+            address: place.address || `${place.name}, ${dest.city}`
+          })
+        })
+      } else {
+        // Fallback: Create locations based on city and days with better default coordinates
+        for (let day = 1; day <= dest.days; day++) {
+          const cityCoords = getDefaultCityCoordinates(dest.city)
+          locations.push({
+            id: `${itinerary.id}-${dest.city}-day-${day}`,
+            name: `${dest.city} - Day ${day}`,
+            latitude: cityCoords.lat + (day * 0.01), // Small offset for each day
+            longitude: cityCoords.lng + (day * 0.01),
+            type: 'attraction',
+            category: `day-${day}`,
+            description: `Explore ${dest.city} on day ${day}`,
+            rating: 4.5,
+            address: `${dest.city}, Day ${day} locations`
+          })
+        }
+      }
+    })
+    
+    return locations
+  }
+
+  // Helper function to get default coordinates for popular cities
+  const getDefaultCityCoordinates = (cityName: string): { lat: number; lng: number } => {
+    const cityCoords: Record<string, { lat: number; lng: number }> = {
+      'Mumbai': { lat: 19.0760, lng: 72.8777 },
+      'Delhi': { lat: 28.7041, lng: 77.1025 },
+      'Bangalore': { lat: 12.9716, lng: 77.5946 },
+      'Chennai': { lat: 13.0827, lng: 80.2707 },
+      'Kolkata': { lat: 22.5726, lng: 88.3639 },
+      'Hyderabad': { lat: 17.3850, lng: 78.4867 },
+      'Pune': { lat: 18.5204, lng: 73.8567 },
+      'Ahmedabad': { lat: 23.0225, lng: 72.5714 },
+      'Jaipur': { lat: 26.9124, lng: 75.7873 },
+      'Surat': { lat: 21.1702, lng: 72.8311 },
+      'Lucknow': { lat: 26.8467, lng: 80.9462 },
+      'Kanpur': { lat: 26.4499, lng: 80.3319 },
+      'Nagpur': { lat: 21.1458, lng: 79.0882 },
+      'Indore': { lat: 22.7196, lng: 75.8577 },
+      'Thane': { lat: 19.2183, lng: 72.9781 },
+      'Bhopal': { lat: 23.2599, lng: 77.4126 },
+      'Visakhapatnam': { lat: 17.6868, lng: 83.2185 },
+      'Pimpri': { lat: 18.6298, lng: 73.7997 },
+      'Patna': { lat: 25.5941, lng: 85.1376 },
+      'Vadodara': { lat: 22.3072, lng: 73.1812 },
+      'Goa': { lat: 15.2993, lng: 74.1240 },
+      'Shimla': { lat: 31.1048, lng: 77.1734 },
+      'Manali': { lat: 32.2432, lng: 77.1892 },
+      'Leh': { lat: 34.1526, lng: 77.5770 },
+      'Rishikesh': { lat: 30.0869, lng: 78.2676 },
+      'Haridwar': { lat: 29.9457, lng: 78.1642 },
+      'Amritsar': { lat: 31.6340, lng: 74.8723 },
+      'Varanasi': { lat: 25.3176, lng: 82.9739 },
+      'Agra': { lat: 27.1767, lng: 78.0081 },
+      'Mysore': { lat: 12.2958, lng: 76.6394 },
+      'Coorg': { lat: 12.3375, lng: 75.8069 },
+      'Ooty': { lat: 11.4064, lng: 76.6932 },
+      'Kochi': { lat: 9.9312, lng: 76.2673 },
+      'Munnar': { lat: 10.0889, lng: 77.0595 },
+      'Alleppey': { lat: 9.4981, lng: 76.3388 },
+      'Udaipur': { lat: 24.5854, lng: 73.7125 },
+      'Jodhpur': { lat: 26.2389, lng: 73.0243 },
+      'Pushkar': { lat: 26.4899, lng: 74.5511 },
+      'Mount Abu': { lat: 24.5926, lng: 72.7156 },
+      'Darjeeling': { lat: 27.0410, lng: 88.2663 },
+      'Gangtok': { lat: 27.3389, lng: 88.6065 },
+      'Shillong': { lat: 25.5788, lng: 91.8933 },
+      'Guwahati': { lat: 26.1445, lng: 91.7362 }
+    }
+
+    // Try to find exact match first
+    const exactMatch = cityCoords[cityName]
+    if (exactMatch) return exactMatch
+
+    // Try partial match
+    const cityKeys = Object.keys(cityCoords)
+    const partialMatch = cityKeys.find(key => 
+      key.toLowerCase().includes(cityName.toLowerCase()) || 
+      cityName.toLowerCase().includes(key.toLowerCase())
+    )
+    
+    if (partialMatch) return cityCoords[partialMatch]
+
+    // Default to Mumbai if city not found
+    return cityCoords['Mumbai']
+  }
   
   // Autocomplete state
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompletePrediction[]>([])
@@ -378,6 +586,18 @@ export const MapComponent: React.FC = () => {
   const [routeError, setRouteError] = useState<string | null>(null)
   const [showUserLocationInfo, setShowUserLocationInfo] = useState(false)
   const [userLocationAddress, setUserLocationAddress] = useState<string | null>(null)
+
+  // Itinerary route polyline - use ref to avoid circular dependency in useEffect
+  const itineraryPolylineRef = useRef<google.maps.Polyline | null>(null)
+  // Itinerary day selection (fixed: was causing undefined error)
+  const [selectedItineraryDay, setSelectedItineraryDay] = useState(0)
+  // Itinerary destination selection for card navigation
+  const [selectedDestinationIndex, setSelectedDestinationIndex] = useState(0)
+  
+  // IndexedDB itinerary management
+  const [loadedItineraries, setLoadedItineraries] = useState<Itinerary[]>([])
+  const [selectedItineraryId, setSelectedItineraryId] = useState<string | null>(null)
+  const [itineraryLoading, setItineraryLoading] = useState(false)
 
   const mapRef = useRef<google.maps.Map | null>(null)
   const map = useMap()
@@ -416,6 +636,17 @@ export const MapComponent: React.FC = () => {
         break
       case 'places':
         locations = [...DEMO_DATA.places]
+        break
+      case 'itinerary':
+        if (selectedItineraryId) {
+          // Show specific itinerary from IndexedDB
+          const selectedItinerary = loadedItineraries.find(it => it.id === selectedItineraryId)
+          if (selectedItinerary) {
+            locations = convertItineraryToLocations(selectedItinerary)
+          }
+        }
+        // When no specific itinerary is selected, show empty map so drawer displays the cards
+        // locations remains empty array []
         break
       default:
         locations = [...DEMO_DATA.transport]
@@ -469,6 +700,92 @@ export const MapComponent: React.FC = () => {
       })
     }
   }, [])
+
+  // Draw route between itinerary destinations for selected day (from IndexedDB itinerary)
+  useEffect(() => {
+    // Clear existing itinerary polyline first
+    if (itineraryPolylineRef.current) {
+      itineraryPolylineRef.current.setMap(null)
+      itineraryPolylineRef.current = null
+    }
+
+    if (selectedLayer === 'itinerary' && map && apiIsLoaded && selectedItineraryId) {
+      const selectedItinerary = loadedItineraries.find(it => it.id === selectedItineraryId)
+      if (selectedItinerary) {
+        const allLocations = convertItineraryToLocations(selectedItinerary)
+        const dayDestinations = allLocations.filter(dest => dest.category === `day-${selectedItineraryDay + 1}`)
+
+        if (dayDestinations.length > 1) {
+          // Create path between destinations
+          const path = dayDestinations.map(dest => 
+            new google.maps.LatLng(dest.latitude, dest.longitude)
+          )
+
+          const polyline = new google.maps.Polyline({
+            path: path,
+            strokeColor: "#F1C40F",
+            strokeWeight: 4,
+            strokeOpacity: 0.8,
+            map: map
+          })
+
+          itineraryPolylineRef.current = polyline
+
+          // Fit map to show all destinations for the day if drawer is not open or first time
+          // If drawer is open and user is swiping, just focus on specific destination
+          if (!drawerOpen || selectedDestinationIndex === 0) {
+            const bounds = new google.maps.LatLngBounds()
+            dayDestinations.forEach(dest => {
+              bounds.extend(new google.maps.LatLng(dest.latitude, dest.longitude))
+            })
+            map.fitBounds(bounds)
+          } else {
+            // Focus on the currently selected destination
+            const currentDest = dayDestinations[selectedDestinationIndex]
+            if (currentDest) {
+              map.panTo({ lat: currentDest.latitude, lng: currentDest.longitude })
+              map.setZoom(16)
+            }
+          }
+        } else if (dayDestinations.length === 1) {
+          // Single destination - just focus on it
+          const singleDest = dayDestinations[0]
+          map.panTo({ lat: singleDest.latitude, lng: singleDest.longitude })
+          map.setZoom(16)
+        }
+      }
+    }
+
+    return () => {
+      if (itineraryPolylineRef.current) {
+        itineraryPolylineRef.current.setMap(null)
+        itineraryPolylineRef.current = null
+      }
+    }
+  }, [selectedLayer, selectedItineraryDay, selectedDestinationIndex, map, apiIsLoaded, selectedItineraryId, loadedItineraries, drawerOpen])
+
+  // Focus map on specific destination
+  const focusOnDestination = useCallback((destination: CityLocation, zoom: number = 16) => {
+    if (map) {
+      map.panTo({ lat: destination.latitude, lng: destination.longitude })
+      map.setZoom(zoom)
+    }
+  }, [map])
+
+  // Handle card swipe/focus change
+  const handleDestinationFocus = useCallback((index: number, destinations: CityLocation[]) => {
+    setSelectedDestinationIndex(index)
+    if (destinations[index]) {
+      focusOnDestination(destinations[index])
+    }
+  }, [focusOnDestination])
+
+  // Auto open drawer when entering itinerary layer with no itinerary selected
+  useEffect(() => {
+    if (selectedLayer === 'itinerary' && !selectedItineraryId) {
+      setDrawerOpen(true)
+    }
+  }, [selectedLayer, selectedItineraryId])
 
   // Initialize DirectionsService and Geocoder
   useEffect(() => {
@@ -1063,6 +1380,16 @@ export const MapComponent: React.FC = () => {
     if (selectedLayer === 'transport' && layer !== 'transport' && showRoutes) {
       clearRoutes()
     }
+    
+    // Reset selectedItineraryId when manually switching to/from itinerary layer
+    if (layer === 'itinerary' && selectedLayer !== 'itinerary') {
+      // Switching TO itinerary layer - reset to show cards list
+      setSelectedItineraryId(null)
+    } else if (layer !== 'itinerary' && selectedLayer === 'itinerary') {
+      // Switching AWAY from itinerary layer - clear selection
+      setSelectedItineraryId(null)
+    }
+    
     setSelectedLayer(layer)
     setIsLayerDropdownOpen(false)
   }
@@ -1119,6 +1446,8 @@ export const MapComponent: React.FC = () => {
 
   return (
     <div className="h-screen w-screen relative overflow-hidden">
+
+
       {/* Full-screen Google Map with dark theme */}
       <Map
         mapId="citypulse-demo-map"
@@ -1250,67 +1579,96 @@ export const MapComponent: React.FC = () => {
       {/* Search interface */}
       <div className="absolute top-16 left-4 right-4 z-10">
         <div className="mx-auto max-w-md space-y-4">
-          {/* Search bar */}
+          {/* Search bar - always show */}
           <div className="relative">
-            <input
-              type="text"
-              value={searchValue}
-              onChange={(e) => handleSearchInputChange(e.target.value)}
-              placeholder="Search locations, events, alerts..."
-              className="w-full px-4 py-3 pr-12 rounded-2xl bg-[color:var(--gumo-surface)]/90 backdrop-blur-sm border border-white/20 text-[color:var(--gumo-text)] placeholder-[color:var(--gumo-muted)] focus:outline-none focus:border-[color:var(--gumo-yellow)] shadow-lg"
-              onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-              onBlur={() => {
-                // Delay hiding suggestions to allow for clicks
-                setTimeout(() => setShowSuggestions(false), 150)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  handleSearch()
-                }
-              }}
-            />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-              {searchValue && (
-                <button onClick={handleClearSearch} className="text-[color:var(--gumo-muted)] hover:text-[color:var(--gumo-text)]">
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-              {loading ? (
-                <div className="w-5 h-5 border-2 border-[color:var(--gumo-yellow)] border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Search
-                  className="w-5 h-5 text-[color:var(--gumo-muted)] hover:text-[color:var(--gumo-yellow)] cursor-pointer"
-                  onClick={handleSearch}
-                />
-              )}
-            </div>
-
-            {/* Autocomplete Suggestions */}
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 max-h-60 overflow-y-auto bg-[color:var(--gumo-surface)]/95 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl z-50">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    key={suggestion.place_id}
-                    onClick={() => handlePlaceSelect(suggestion)}
-                    className="w-full px-4 py-3 text-left hover:bg-white/10 transition-colors border-b border-white/10 last:border-b-0 first:rounded-t-2xl last:rounded-b-2xl"
-                  >
-                    <div className="flex items-center gap-3">
-                      <MapPin className="w-4 h-4 text-[color:var(--gumo-yellow)] flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-[color:var(--gumo-text)] truncate">
-                          {suggestion.structured_formatting.main_text}
-                        </p>
-                        <p className="text-sm text-[color:var(--gumo-muted)] truncate">
-                          {suggestion.structured_formatting.secondary_text}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+          <input
+            type="text"
+            value={searchValue}
+            onChange={(e) => handleSearchInputChange(e.target.value)}
+            placeholder="Search locations, events, alerts..."
+            className="w-full px-4 py-3 pr-12 rounded-2xl bg-[color:var(--gumo-surface)]/90 backdrop-blur-sm border border-white/20 text-[color:var(--gumo-text)] placeholder-[color:var(--gumo-muted)] focus:outline-none focus:border-[color:var(--gumo-yellow)] shadow-lg"
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            onBlur={() => {
+              // Delay hiding suggestions to allow for clicks
+              setTimeout(() => setShowSuggestions(false), 150)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                handleSearch()
+              }
+            }}
+          />
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+            {searchValue && (
+              <button onClick={handleClearSearch} className="text-[color:var(--gumo-muted)] hover:text-[color:var(--gumo-text)]">
+                <X className="w-5 h-5" />
+              </button>
+            )}
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-[color:var(--gumo-yellow)] border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Search
+                className="w-5 h-5 text-[color:var(--gumo-muted)] hover:text-[color:var(--gumo-yellow)] cursor-pointer"
+                onClick={handleSearch}
+              />
             )}
           </div>
+          </div>
+
+          {/* Day selector tags - show when itinerary is selected, positioned below search */}
+          {selectedLayer === 'itinerary' && selectedItineraryId && loadedItineraries.find(it => it.id === selectedItineraryId) && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {loadedItineraries.find(it => it.id === selectedItineraryId)?.destinations.flatMap(dest => 
+                Array.from({length: dest.days}, (_, i) => ({
+                  date: `Day ${i + 1}`,
+                  day: i,
+                  city: dest.city
+                }))
+              ).map((dayInfo, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setSelectedItineraryDay(index)
+                    setSelectedDestinationIndex(0)
+                    setDrawerOpen(true) // Open drawer when day is clicked
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                    selectedItineraryDay === index
+                      ? 'bg-[color:var(--gumo-yellow)] text-black'
+                      : 'bg-[color:var(--gumo-surface)]/90 text-[color:var(--gumo-text)] hover:bg-[color:var(--gumo-surface)] border border-white/20'
+                  }`}
+                >
+                  {dayInfo.date}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Autocomplete Suggestions */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 max-h-60 overflow-y-auto bg-[color:var(--gumo-surface)]/95 backdrop-blur-sm rounded-2xl border border-white/20 shadow-xl z-50">
+              {suggestions.map((suggestion, index) => (
+                <button
+                  key={suggestion.place_id}
+                  onClick={() => handlePlaceSelect(suggestion)}
+                  className="w-full px-4 py-3 text-left hover:bg-white/10 transition-colors border-b border-white/10 last:border-b-0 first:rounded-t-2xl last:rounded-b-2xl"
+                >
+                  <div className="flex items-center gap-3">
+                    <MapPin className="w-4 h-4 text-[color:var(--gumo-yellow)] flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-[color:var(--gumo-text)] truncate">
+                        {suggestion.structured_formatting.main_text}
+                      </p>
+                      <p className="text-sm text-[color:var(--gumo-muted)] truncate">
+                        {suggestion.structured_formatting.secondary_text}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1346,7 +1704,7 @@ export const MapComponent: React.FC = () => {
             {/* Dropdown Options */}
             {isLayerDropdownOpen && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-[color:var(--gumo-surface)] rounded-lg border border-white/10 shadow-lg overflow-hidden z-50">
-                {(['transport', 'incidents', 'events', 'places'] as LayerType[]).map((layer) => (
+                {(['transport', 'incidents', 'events', 'places', 'itinerary'] as LayerType[]).map((layer) => (
                   <button
                     key={layer}
                     onClick={() => selectLayer(layer)}
@@ -1596,41 +1954,315 @@ export const MapComponent: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4 pt-4">
-            {/* Active Alerts */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-[color:var(--gumo-text)]">Active Alerts</h3>
-              {DEMO_DATA.incidents.slice(0, 2).map((incident) => (
-                <div key={incident.id} className="flex items-start gap-3 p-3 bg-[color:var(--gumo-bg)] rounded-xl">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                    incident.severity === 'high' ? 'bg-red-500' : 'bg-yellow-500'
-                  }`}>
-                    <AlertTriangle className="w-4 h-4 text-white" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-[color:var(--gumo-text)]">{incident.name}</p>
-                    <p className="text-xs text-[color:var(--gumo-muted)] mt-1">{incident.description}</p>
-                    <p className="text-xs text-[color:var(--gumo-muted)] mt-1">{incident.source} • {incident.timestamp}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* Itinerary Layer Special View */}
+            {selectedLayer === 'itinerary' ? (
+              <>
+                {selectedItineraryId ? (
+                  // Show swipeable destination cards for the selected day
+                  <>
+                    {(() => {
+                      const selectedItinerary = loadedItineraries.find(it => it.id === selectedItineraryId)
+                      if (!selectedItinerary) {
+                        return (
+                          <div className="space-y-3 pt-4">
+                            <p className="text-sm text-[color:var(--gumo-muted)]">Itinerary not found</p>
+                            <button
+                              onClick={() => setSelectedItineraryId(null)}
+                              className="text-[color:var(--gumo-yellow)] text-sm hover:underline"
+                            >
+                              ← Back to all itineraries
+                            </button>
+                          </div>
+                        )
+                      }
+                      
+                      const currentDayPlaces = convertItineraryToLocations(selectedItinerary)
+                        .filter(dest => dest.category === `day-${selectedItineraryDay + 1}`)
+                      
+                      if (currentDayPlaces.length === 0) {
+                        return (
+                          <div className="space-y-3 pt-4 text-center">
+                            <p className="text-sm text-[color:var(--gumo-muted)]">No destinations found for Day {selectedItineraryDay + 1}</p>
+                          </div>
+                        )
+                      }
+                      
+                      return (
+                        <div className="space-y-0 -mx-4 -mt-4">
+                          {/* Header with day info and navigation */}
+                          <div className="px-6 py-4 bg-[color:var(--gumo-surface)] border-b border-white/10">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h2 className="text-lg font-semibold text-[color:var(--gumo-text)]">
+                                  Day {selectedItineraryDay + 1} Destinations
+                                </h2>
+                                <p className="text-sm text-[color:var(--gumo-muted)]">
+                                  {selectedDestinationIndex + 1} of {currentDayPlaces.length}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => setSelectedItineraryId(null)}
+                                className="text-[color:var(--gumo-muted)] hover:text-[color:var(--gumo-text)]"
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
 
-            {/* Nearby Events */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-[color:var(--gumo-text)]">Nearby Events</h3>
-              {DEMO_DATA.events.map((event) => (
-                <div key={event.id} className="flex items-start gap-3 p-3 bg-[color:var(--gumo-bg)] rounded-xl">
-                  <div className="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center">
-                    {event.category === 'music' ? <Music className="w-4 h-4 text-white" /> : <Calendar className="w-4 h-4 text-white" />}
+                          {/* Swipeable destination cards */}
+                          <div className="relative">
+                            <div 
+                              className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory"
+                              onScroll={(e) => {
+                                const container = e.target as HTMLDivElement
+                                const cardWidth = container.clientWidth
+                                const scrollLeft = container.scrollLeft
+                                const newIndex = Math.round(scrollLeft / cardWidth)
+                                if (newIndex !== selectedDestinationIndex) {
+                                  handleDestinationFocus(newIndex, currentDayPlaces)
+                                }
+                              }}
+                            >
+                              {currentDayPlaces.map((place, index) => (
+                                <div 
+                                  key={place.id}
+                                  className="w-full flex-shrink-0 snap-start"
+                                >
+                                  {/* Destination card content */}
+                                  <div className="bg-[color:var(--gumo-bg)] p-6">
+                                    {/* Distance and time header */}
+                                    <div className="flex items-baseline gap-4 text-white mb-4">
+                                      <div className="flex items-baseline gap-1">
+                                        <span className="text-3xl font-bold">
+                                          {index === 0 ? '0.0' : '1.2'}
+                                        </span>
+                                        <span className="text-sm opacity-70">km</span>
+                                      </div>
+                                      <div className="flex items-baseline gap-1">
+                                        <span className="text-3xl font-bold">
+                                          {index === 0 ? '0' : '5'}
+                                        </span>
+                                        <span className="text-sm opacity-70">min</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Location number */}
+                                    <div className="text-2xl font-bold text-white mb-4">
+                                      {index + 1}
+                                    </div>
+
+                                    {/* Place info */}
+                                    <div className="space-y-4 mb-6">
+                                      <div className="flex items-start gap-3">
+                                        <div className="bg-[color:var(--gumo-yellow)] text-black text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                                          ?
+                                        </div>
+                                        <div className="flex-1">
+                                          <p className="text-[color:var(--gumo-text)] text-sm">Entry ticket is</p>
+                                          <p className="text-[color:var(--gumo-yellow)] font-semibold">30 INR</p>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-start gap-3">
+                                        <div className="bg-[color:var(--gumo-yellow)] text-black w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0">
+                                          <Star className="w-3 h-3" />
+                                        </div>
+                                        <div className="flex-1">
+                                          <p className="text-[color:var(--gumo-text)] text-sm">
+                                            {place.description || `Visit ${place.name}`}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Timing section */}
+                                    <div className="px-4 py-3 bg-[color:var(--gumo-surface)] rounded-xl mb-4">
+                                      <div className="flex items-center gap-3">
+                                        <div className="bg-[color:var(--gumo-yellow)] text-black text-lg font-bold w-8 h-8 rounded-full flex items-center justify-center">
+                                          {index + 1}
+                                        </div>
+                                        <div className="text-[color:var(--gumo-text)] text-sm flex-1">
+                                          <span className="font-medium">{place.time || `${9 + index * 2}:00 AM`}</span>
+                                          <span className="mx-2">•</span>
+                                          <span>Duration 2-3 hours</span>
+                                        </div>
+                                        <div className="bg-[color:var(--gumo-yellow)] text-black w-6 h-6 rounded-full flex items-center justify-center">
+                                          <MapPin className="w-3 h-3" />
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Main place card */}
+                                    <div className="bg-[color:var(--gumo-surface)] rounded-xl p-4 mb-6">
+                                      <div className="flex items-center gap-3">
+                                        <div className="w-16 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-lg flex-shrink-0" />
+                                        <div className="flex-1">
+                                          <h3 className="text-[color:var(--gumo-text)] font-semibold text-base">
+                                            {place.name}
+                                          </h3>
+                                          <div className="flex items-center gap-1 mt-1">
+                                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                                            <span className="text-[color:var(--gumo-muted)] text-sm">
+                                              {place.rating} • {place.type}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <div className="w-16 h-12 bg-gradient-to-br from-amber-500 to-amber-700 rounded-lg flex-shrink-0" />
+                                      </div>
+                                    </div>
+
+                                    {/* Action buttons */}
+                                    <div className="flex gap-3">
+                                      <button 
+                                        onClick={() => {
+                                          window.open(
+                                            `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`, 
+                                            '_blank'
+                                          )
+                                        }}
+                                        className="flex-1 py-3 px-4 bg-[color:var(--gumo-yellow)] text-black rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-[color:var(--gumo-yellow)]/90 transition-colors"
+                                      >
+                                        <Navigation className="w-4 h-4" />
+                                        Navigate
+                                      </button>
+                                      <button 
+                                        onClick={() => {
+                                          const text = encodeURIComponent(`Check out ${place.name} - ${place.description}`)
+                                          window.open(`https://wa.me/?text=${text}`, '_blank')
+                                        }}
+                                        className="flex-1 py-3 px-4 border border-white/20 text-[color:var(--gumo-text)] rounded-xl font-semibold text-sm flex items-center justify-center gap-2 hover:bg-white/10 transition-colors"
+                                      >
+                                        <Share2 className="w-4 h-4" />
+                                        Share
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Navigation indicators */}
+                            <div className="flex justify-center gap-2 py-4 bg-[color:var(--gumo-surface)]">
+                              {currentDayPlaces.map((_, index) => (
+                                <button
+                                  key={index}
+                                  onClick={() => {
+                                    handleDestinationFocus(index, currentDayPlaces)
+                                    // Scroll to the card
+                                    const container = document.querySelector('.overflow-x-auto') as HTMLDivElement
+                                    if (container) {
+                                      container.scrollTo({
+                                        left: index * container.clientWidth,
+                                        behavior: 'smooth'
+                                      })
+                                    }
+                                  }}
+                                  className={`w-2 h-2 rounded-full transition-colors ${
+                                    index === selectedDestinationIndex
+                                      ? 'bg-[color:var(--gumo-yellow)]'
+                                      : 'bg-white/20'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+
+                            {/* Swipe navigation arrows */}
+                            {currentDayPlaces.length > 1 && (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    const newIndex = Math.max(0, selectedDestinationIndex - 1)
+                                    handleDestinationFocus(newIndex, currentDayPlaces)
+                                    const container = document.querySelector('.overflow-x-auto') as HTMLDivElement
+                                    if (container) {
+                                      container.scrollTo({
+                                        left: newIndex * container.clientWidth,
+                                        behavior: 'smooth'
+                                      })
+                                    }
+                                  }}
+                                  className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-[color:var(--gumo-surface)]/90 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 hover:bg-[color:var(--gumo-surface)] transition-colors"
+                                  disabled={selectedDestinationIndex === 0}
+                                >
+                                  <ChevronLeft className="w-5 h-5 text-[color:var(--gumo-text)]" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const newIndex = Math.min(currentDayPlaces.length - 1, selectedDestinationIndex + 1)
+                                    handleDestinationFocus(newIndex, currentDayPlaces)
+                                    const container = document.querySelector('.overflow-x-auto') as HTMLDivElement
+                                    if (container) {
+                                      container.scrollTo({
+                                        left: newIndex * container.clientWidth,
+                                        behavior: 'smooth'
+                                      })
+                                    }
+                                  }}
+                                  className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-[color:var(--gumo-surface)]/90 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/20 hover:bg-[color:var(--gumo-surface)] transition-colors"
+                                  disabled={selectedDestinationIndex === currentDayPlaces.length - 1}
+                                >
+                                  <ChevronRight className="w-5 h-5 text-[color:var(--gumo-text)]" />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
+                  </>
+                ) : (
+                  // Show list of all itineraries (when directly accessing map page)
+                  <div className="space-y-4 pt-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-medium text-[color:var(--gumo-text)]">Your Itineraries</h3>
+                      {itineraryLoading && (
+                        <div className="w-4 h-4 border-2 border-[color:var(--gumo-yellow)] border-t-transparent rounded-full animate-spin"></div>
+                      )}
+                    </div>
+                    
+                    {loadedItineraries.length === 0 ? (
+                      <div className="text-center py-8 space-y-3">
+                        <div className="w-16 h-16 bg-[color:var(--gumo-yellow)]/20 rounded-2xl flex items-center justify-center mx-auto">
+                          <MapPin className="w-8 h-8 text-[color:var(--gumo-yellow)]" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-[color:var(--gumo-text)] mb-1">No itineraries yet</p>
+                          <p className="text-xs text-[color:var(--gumo-muted)]">
+                            Start a conversation to create your first itinerary
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid gap-6">
+                        {loadedItineraries.map((itinerary) => (
+                          <div key={itinerary.id} onClick={() => setSelectedItineraryId(itinerary.id)}>
+                            <ItinerarySummaryCardV2
+                              title={itinerary.title}
+                              blurb={itinerary.description}
+                              bullets={itinerary.highlights}
+                              href={`#itinerary-${itinerary.id}`}
+                              imageSrc={itinerary.imageSrc}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-[color:var(--gumo-text)]">{event.name}</p>
-                    <p className="text-xs text-[color:var(--gumo-muted)] mt-1">{event.description}</p>
-                    <p className="text-xs text-[color:var(--gumo-muted)] mt-1">{event.startTime} - {event.endTime}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+                )}
+              </>
+            ) : (
+              /* Other layers' UI */
+              <div className="space-y-4 pt-4">
+                {getAllVisibleLocations().map((location, index) => (
+                  <LayerMarker
+                    key={location.id}
+                    location={location}
+                    isSelected={false}
+                    onClick={() => setSelectedLocation(location)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </ResizableDrawer>

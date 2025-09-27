@@ -12,9 +12,7 @@ import ExploreGrid from "@/components/gumo/explore-grid"
 import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { chatHistoryDB, generateSessionId, generateSessionTitle, type ChatSession } from "@/lib/chat-history"
-import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-itinerary-summary-card"
-import ServiceWorkerRegistration from "@/components/pwa/service-worker"
-import InstallPrompt from "@/components/pwa/install-prompt"
+import SaveableItinerarySummaryCard from "@/components/itinerary/saveable-summary-card"
 
 export default function Page() {
   const [isProcessing, setIsProcessing] = useState(false)
@@ -352,130 +350,133 @@ export default function Page() {
   }
 
   return (
-    <>
-      <ServiceWorkerRegistration />
-      <InstallPrompt />
-      <main className="min-h-dvh mx-auto max-w-md px-4 pb-24 pt-2 flex flex-col">
-        <img src="/images/reference/gumo-home.jpg" alt="" aria-hidden className="hidden" />
+    <main className="min-h-dvh mx-auto max-w-md px-4 pb-24 pt-2 flex flex-col">
+      <img src="/images/reference/gumo-home.jpg" alt="" aria-hidden className="hidden" />
 
-        <TopBar onShowHistory={() => setShowHistory(true)} onNewChat={startNewChat} />
+      <TopBar onShowHistory={() => setShowHistory(true)} onNewChat={startNewChat} />
 
-        {showHistory && (
-          <ChatHistory
-            sessions={chatSessions}
-            onSelectSession={loadChatSession}
-            onClose={() => setShowHistory(false)}
-            onDeleteSession={(sessionId) => {
-              setChatSessions((prev) => prev.filter((s) => s.id !== sessionId))
-            }}
-          />
-        )}
+      {showHistory && (
+        <ChatHistory
+          sessions={chatSessions}
+          onSelectSession={loadChatSession}
+          onClose={() => setShowHistory(false)}
+          onDeleteSession={(sessionId) => {
+            setChatSessions((prev) => prev.filter((s) => s.id !== sessionId))
+          }}
+        />
+      )}
 
-        <section className="mt-6 space-y-4">
-          {messages.length === 0 ? (
-            <>
-              <h1 className="text-pretty text-2xl font-medium">What's your plan for today?</h1>
+      <section className="mt-6 space-y-4">
+        {messages.length === 0 ? (
+          <>
+            <h1 className="text-pretty text-2xl font-medium">What's your plan for today?</h1>
 
-              <div className="mt-4 space-y-4">
-                <SuggestionCard
-                  image="/traffic.png"
-                  title="Check traffic conditions for my commute"
-                  onClick={() => handleQuery("Check traffic conditions for my commute")}
-                />
-                <SuggestionCard
-                  image="/events.png"
-                  title="Find local events happening this weekend"
-                  onClick={() => handleQuery("Find local events happening this weekend")}
-                />
-                <SuggestionCard
-                  image="/food.png"
-                  title="Plan a 3 day itinerary to Mumbai"
-                  onClick={() => handleQuery("Plan a 3 day itinerary to Mumbai")}
-                />
-              </div>
+            <div className="mt-4 space-y-4">
+              <SuggestionCard
+                image="/traffic.png"
+                title="Check traffic conditions for my commute"
+                onClick={() => handleQuery("Check traffic conditions for my commute")}
+              />
+              <SuggestionCard
+                image="/events.png"
+                title="Find local events happening this weekend"
+                onClick={() => handleQuery("Find local events happening this weekend")}
+              />
+              <SuggestionCard
+                image="/food.png"
+                title="Plan a 3 day itinerary to Mumbai"
+                onClick={() => handleQuery("Plan a 3 day itinerary to Mumbai")}
+              />
+            </div>
 
-              <div className="mt-8 flex items-center justify-between">
-                <p className="text-[15px] leading-6 text-[color:var(--gumo-muted)]">
-                  {isProcessing ? "Processing your request..." : "Discover how"}{" "}
-                  <span className="font-semibold text-[color:var(--gumo-text)]">CityPulse</span>
-                  {!isProcessing && <br />}
-                  {!isProcessing && " can help you?"}
-                </p>
-                <a
-                  href="/about"
-                  className="inline-flex items-center gap-2 text-[15px] font-medium text-[color:var(--gumo-yellow)]"
-                >
-                  Learn more
-                  <span aria-hidden>↗</span>
-                </a>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-4">
-              {messages.map((m) => (
-                <div key={m.id}>
-                  {m.type === "text" && (
-                    <div className={`rounded-2xl p-3 ${m.role === "user" ? "bg-white/5 ml-12" : "bg-white/10 mr-12"}`}>
-                      <p className="text-sm text-white/90">{m.text}</p>
-                    </div>
-                  )}
-                  {m.type === "planner" && (
-                    <div className="mb-6">
-                      <PlannerForm data={m.payload} />
-                    </div>
-                  )}
-                  {m.type === "traffic" && (
-                    <div className="mb-6">
-                      <TrafficInsights data={m.payload} />
-                    </div>
-                  )}
-                  {m.type === "events" && (
-                    <div className="mb-6">
-                      <EventsList data={m.payload} />
-                    </div>
-                  )}
-                  {m.type === "food" && (
-                    <div className="mb-6">
-                      <FoodList data={m.payload} />
-                    </div>
-                  )}
-                  {m.type === "explore" && (
-                    <div className="mb-6">
-                      <ExploreGrid data={m.payload} />
-                    </div>
-                  )}
-                  {m.type === "summary" && (
-                    <div className="mb-6">
-                      <SaveableItinerarySummaryCard
-                        title={m.payload.title}
-                        blurb={m.payload.blurb}
-                        bullets={m.payload.bullets}
-                        href={m.payload.href}
-                        imageSrc={m.payload.imageSrc}
-                        chatData={m.payload}
+            <div className="mt-8 flex items-center justify-between">
+              <p className="text-[15px] leading-6 text-[color:var(--gumo-muted)]">
+                {isProcessing ? "Processing your request..." : "Discover how"}{" "}
+                <span className="font-semibold text-[color:var(--gumo-text)]">CityPulse</span>
+                {!isProcessing && <br />}
+                {!isProcessing && " can help you?"}
+              </p>
+              <a
+                href="/about"
+                className="inline-flex items-center gap-2 text-[15px] font-medium text-[color:var(--gumo-yellow)]"
+              >
+                Learn more
+                <span aria-hidden>↗</span>
+              </a>
+            </div>
+          </>
+        ) : (
+          <div className="space-y-4">
+            {messages.map((m) => (
+              <div key={m.id}>
+                {m.type === "text" && (
+                  <div className={`rounded-2xl p-3 ${m.role === "user" ? "bg-white/5 ml-12" : "bg-white/10 mr-12"}`}>
+                    <p className="text-sm text-white/90">{m.text}</p>
+                  </div>
+                )}
+                {m.type === "planner" && (
+                  <div className="mb-6">
+                    <PlannerForm data={m.payload} />
+                  </div>
+                )}
+                {m.type === "traffic" && (
+                  <div className="mb-6">
+                    <TrafficInsights data={m.payload} />
+                  </div>
+                )}
+                {m.type === "events" && (
+                  <div className="mb-6">
+                    <EventsList data={m.payload} />
+                  </div>
+                )}
+                {m.type === "food" && (
+                  <div className="mb-6">
+                    <FoodList data={m.payload} />
+                  </div>
+                )}
+                {m.type === "explore" && (
+                  <div className="mb-6">
+                    <ExploreGrid data={m.payload} />
+                  </div>
+                )}
+                {m.type === "summary" && (
+                  <div className="mb-6">
+                    <SaveableItinerarySummaryCard
+                      title={m.payload.title}
+                      blurb={m.payload.blurb}
+                      bullets={m.payload.bullets}
+                      href={m.payload.href}
+                      imageSrc={m.payload.imageSrc}
+                      itineraryData={{
+                        title: m.payload.title,
+                        description: m.payload.blurb,
+                        destinations: [{ city: m.payload.title.split(' ')[0] || 'Unknown', days: 3 }],
+                        highlights: m.payload.bullets,
+                        imageSrc: m.payload.imageSrc,
+                        chatData: m.payload
+                      }}
                       onSaved={(id) => console.log('Itinerary saved from summary:', id)}
                       onError={(error) => console.error('Save failed from summary:', error)}
                     />
-                    </div>
-                  )}
-                </div>
-              ))}
-              {isProcessing && (
-                <div className="rounded-2xl bg-white/10 p-3 mr-12">
-                  <p className="text-sm text-white/70">Thinking…</p>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
-        {/* Spacer to push input to bottom on taller screens */}
-        <div className="flex-1" />
+                  </div>
+                )}
+              </div>
+            ))}
+            {isProcessing && (
+              <div className="rounded-2xl bg-white/10 p-3 mr-12">
+                <p className="text-sm text-white/70">Thinking…</p>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+      {/* Spacer to push input to bottom on taller screens */}
+      <div className="flex-1" />
 
-        <div className="relative">
-          <div className="gumo-ambient" />
-          <ChatInput onQuerySubmit={handleQuery} disabled={isProcessing} />
-        </div>
-      </main>
-    </>
+      <div className="relative">
+        <div className="gumo-ambient" />
+        <ChatInput onQuerySubmit={handleQuery} disabled={isProcessing} />
+      </div>
+    </main>
   )
 }

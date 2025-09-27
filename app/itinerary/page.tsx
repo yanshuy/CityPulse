@@ -80,7 +80,13 @@ export default function ItineraryPage({ searchParams }: { searchParams: { plan?:
     <main className="mx-auto w-full max-w-2xl px-4 py-6">
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1">
+          <button 
+            onClick={() => {
+              // Redirect to maps page with itinerary layer
+              window.location.href = `/maps?layer=itinerary`
+            }}
+            className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1 hover:bg-[color:var(--gumo-yellow)]/90 transition-colors"
+          >
             Map View
           </button>
           {/* <button className="rounded-full bg-[color:var(--gumo-yellow)] px-3 py-1.5 text-xs text-black font-medium flex items-center gap-1">

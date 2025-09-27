@@ -15,6 +15,7 @@ interface ResizableDrawerProps {
   maxHeight?: number
   defaultHeight?: number
   className?: string
+  noOverlay?: boolean
 }
 
 export function ResizableDrawer({
@@ -26,6 +27,7 @@ export function ResizableDrawer({
   maxHeight = 800,
   defaultHeight = 400,
   className,
+  noOverlay = true,
 }: ResizableDrawerProps) {
   const [drawerHeight, setDrawerHeight] = useState(defaultHeight)
   const [isDragging, setIsDragging] = useState(false)
@@ -101,6 +103,8 @@ export function ResizableDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent
+        hideOverlay={noOverlay}
+        overlayClassName="bg-transparent"
         ref={drawerRef}
         showHandle={false}
         className={cn(
