@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import { z } from 'zod'
+import { withRetry } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 
@@ -60,10 +61,12 @@ export async function POST(req: Request) {
             return Response.json({ success: false, error: 'API key not configured' }, { status: 500 })
         }
 
-        const { object } = await generateObject({
-            model: google('gemini-2.0-flash'),
-            schema: ItinerarySchema,
-            prompt: `
+        const { object } = await withRetry(
+            async () => {
+                return await generateObject({
+                    model: google('gemini-2.0-flash'),
+                    schema: ItinerarySchema,
+                    prompt: `
         Generate a detailed ${days}-day itinerary for ${destination}. 
         
         User preferences: ${preferences || 'balanced mix of culture, food, and sightseeing'}
@@ -114,7 +117,14 @@ export async function POST(req: Request) {
         
         Ensure logical flow: morning activities → lunch → afternoon activities → evening activities
         `,
-        })
+                })
+            },
+            {
+                maxRetries: 3,
+                baseDelay: 2000,
+                maxDelay: 12000
+            }
+        )
 
         return Response.json({ success: true, data: object })
     } catch (error) {
