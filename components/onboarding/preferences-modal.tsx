@@ -89,7 +89,12 @@ export default function PreferencesModal({ open, onClose, onSave }: Props) {
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4"
     >
-      <div className="w-full md:max-w-md rounded-t-2xl md:rounded-2xl border border-white/10 bg-[color:var(--gumo-bg)]">
+      <div
+        style={{
+          height: "95vh",
+          scrollbarColor: "transparent",
+          scrollbarWidth: "none",
+        }} className="w-full md:max-w-md rounded-t-2xl md:rounded-2xl border border-white/10 bg-[color:var(--gumo-bg)]">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <div>
@@ -249,8 +254,8 @@ export default function PreferencesModal({ open, onClose, onSave }: Props) {
                   variant={transport === opt ? "default" : "outline"}
                   onClick={() => setTransport(opt)}
                   className={`h-9 ${transport === opt
-                      ? "bg-[color:var(--gumo-yellow)] text-black"
-                      : "border-[color:var(--gumo-navy)] text-[color:var(--gumo-text)]"
+                    ? "bg-[color:var(--gumo-yellow)] text-black"
+                    : "border-[color:var(--gumo-navy)] text-[color:var(--gumo-text)]"
                     }`}
                 >
                   {opt}
@@ -270,8 +275,8 @@ export default function PreferencesModal({ open, onClose, onSave }: Props) {
                     key={tag}
                     onClick={() => toggleInterest(tag)}
                     className={`cursor-pointer ${active
-                        ? "bg-[color:var(--gumo-yellow)] text-black"
-                        : "bg-[color:var(--gumo-navy)] text-[color:var(--gumo-text)] border-[color:var(--gumo-navy)]"
+                      ? "bg-[color:var(--gumo-yellow)] text-black"
+                      : "bg-[color:var(--gumo-navy)] text-[color:var(--gumo-text)] border-[color:var(--gumo-navy)]"
                       }`}
                   >
                     {tag}

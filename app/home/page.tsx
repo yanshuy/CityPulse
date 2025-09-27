@@ -126,11 +126,11 @@ const Page = () => {
     } else {
       // fallback to previous default
       setActiveGoal({
-        destination: "Bandra Office",
-        targetTime: "9:00 AM",
-        eta: "8:47 AM",
-        method: "Metro",
-        status: "delayed",
+        destination: "Thane",
+        targetTime: "6:00 PM",
+        eta: "6:00 PM",
+        method: "Train",
+        // status: "delayed",
       })
     }
   }, [])
@@ -388,7 +388,7 @@ const Page = () => {
 
       {/* Active Goal Card */}
       <Card className="gumo-card p-4 mb-6">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gumo-text">
             Upcoming Plan
           </h2>

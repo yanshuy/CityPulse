@@ -127,6 +127,42 @@ export default function PlannerForm({ data }: PlannerFormProps) {
       if (!hasDays) throw new Error('Generated itinerary missing day-by-day structure')
       setGeneratedItinerary(itinerary)
 
+      // Immediately save the itinerary and show the summary card
+      try {
+        const savedId = await persistItinerary(itinerary)
+        setSavedItineraryId(savedId)
+        const href = `/itinerary?id=${savedId}&readOnly=true`
+
+        // Dispatch the summary event to show the itinerary card
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('gumo:add-itinerary-summary', {
+            detail: {
+              title: itinerary.title,
+              blurb: itinerary.overview,
+              bullets: itinerary.days[0]?.items.slice(0, 3).map((item: any) => item.name) || itinerary.generalTips.slice(0, 3),
+              href,
+              imageSrc: '/images/reference/itinerary-summary-user.png',
+              itinerary: itinerary
+            }
+          }))
+        }
+      } catch (saveError) {
+        console.error('Failed to save itinerary:', saveError)
+        // Still show the summary even if save failed
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('gumo:add-itinerary-summary', {
+            detail: {
+              title: itinerary.title,
+              blurb: itinerary.overview,
+              bullets: itinerary.days[0]?.items.slice(0, 3).map((item: any) => item.name) || itinerary.generalTips.slice(0, 3),
+              href: '#',
+              imageSrc: '/images/reference/itinerary-summary-user.png',
+              itinerary: itinerary
+            }
+          }))
+        }
+      }
+
     } catch (error) {
       console.error('Failed to generate itinerary:', error)
       setGenError(error instanceof Error ? error.message : 'Failed to generate itinerary')
