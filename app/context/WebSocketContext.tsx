@@ -138,12 +138,36 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({
       try {
         // Parse the JSON message
         const parsedMessage = JSON.parse(data.message);
-        if (parsedMessage.type === "new_reddit_post") {
+        if (parsedMessage.type === "new_sms_message") {
+          // Dispatch a custom event so any page/component can update its live alerts list
+          if (parsedMessage.data?.message) {
+            try {
+              window.dispatchEvent(
+                new CustomEvent('citypulse-new-sms-alert', {
+                  detail: { message: parsedMessage.data.message }
+                })
+              );
+            } catch (e) {
+              console.error('Failed to dispatch sms alert event', e);
+            }
+          }
+
+          // Show a simple toast WITHOUT action buttons (Yes/No/Dismiss removed per requirement)
+          toast(parsedMessage.data?.message || 'New message received', {
+            className: "!bg-black !border-[var(--gumo-yellow)] gumo-card !text-white",
+            style: {
+              backgroundColor: 'black',
+              color: 'white',
+              border: '1px solid var(--gumo-yellow)'
+            },
+            duration: 7000
+          });
+        } else if (parsedMessage.type === "new_reddit_post") {
           // Custom toast with buttons for Reddit posts
           toast.custom((t) => (
             <div className="!bg-black !border-[var(--gumo-yellow)] gumo-card p-4 flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <h3 className="text-[var(--gumo-text)] font-medium">{parsedMessage.data.title}</h3>
+                <h3 className="text-white font-medium">{parsedMessage.data.title}</h3>
                 <a 
                   href={parsedMessage.data.url} 
                   target="_blank" 

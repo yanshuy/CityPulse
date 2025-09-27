@@ -196,36 +196,37 @@ const Page = () => {
     return iconMap[code] || Cloud
   }
 
-  const [alerts] = useState<Alert[]>([
-    {
-      id: "1",
-      type: "traffic",
-      message: "Heavy traffic on Western Express Highway",
-      severity: "high",
-      icon: Car,
-    },
-    {
-      id: "2",
-      type: "weather",
-      message: "Light rain expected in 15 minutes",
-      severity: "medium",
-      icon: CloudRain,
-    },
-    {
-      id: "3",
-      type: "transit",
-      message: "Metro line 1 facing 10 min delay",
-      severity: "low",
-      icon: Train,
-    },
-    {
-      id: "4",
-      type: "traffic",
-      message: "Accident near Andheri flyover - expect diversions",
-      severity: "high",
-      icon: Car,
-    },
-  ])
+  const [alerts, setAlerts] = useState<Alert[]>([{
+    id: "seed-traffic",
+    type: "traffic",
+    message: "Heavy traffic on Western Express Highway",
+    severity: "high",
+    icon: Car,
+  },
+  {
+    id: "seed-weather",
+    type: "weather",
+    message: "Light rain expected in 15 minutes",
+    severity: "medium",
+    icon: CloudRain,
+  }])
+
+  // Listen for incoming SMS alerts (from WebSocketContext custom event)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const custom = e as CustomEvent<{ message: string }>
+      if (!custom.detail?.message) return
+      setAlerts(prev => [{
+        id: 'sms-' + Date.now(),
+        type: 'traffic', // Keeping existing union; could extend type system separately
+        message: custom.detail.message,
+        severity: 'high',
+        icon: AlertTriangle
+      }, ...prev])
+    }
+    window.addEventListener('citypulse-new-sms-alert', handler)
+    return () => window.removeEventListener('citypulse-new-sms-alert', handler)
+  }, [])
 
   const [suggestions] = useState<Suggestion[]>([
     {
