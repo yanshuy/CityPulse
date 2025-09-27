@@ -4,10 +4,10 @@
 
 Add these to your `.env.local` file:
 
-```
+\`\`\`
 # Google Maps API Key (required for place search and suggestions)
 GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
-```
+\`\`\`
 
 ## Setup Instructions
 
@@ -29,9 +29,9 @@ GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
    - Add API restrictions (limit to Places API)
 
 4. **Add to Environment:**
-   ```bash
+   \`\`\`bash
    echo "GOOGLE_MAPS_API_KEY=your_actual_key_here" >> .env.local
-   ```
+   \`\`\`
 
 ## Features Enabled
 

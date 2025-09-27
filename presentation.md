@@ -1,4 +1,3 @@
-
 ---
 marp: true
 theme: uncover
@@ -104,4 +103,3 @@ CityPulse is a smart travel assistant that helps users create personalized itine
 ## **Thank You!**
 
 **Questions?**
-

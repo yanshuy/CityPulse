@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import { z } from 'zod'
+import { withRetry } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 
@@ -35,7 +36,6 @@ export async function POST(req: Request) {
             schema: TrafficDataSchema,
             prompt: `
         Generate realistic traffic information for this query: "${query}"
-        
         Extract or infer:
         - route: Main route description (e.g., "Andheri to Mumbai Airport")
         - fromLocation: Starting point (extract or suggest realistic Mumbai location)

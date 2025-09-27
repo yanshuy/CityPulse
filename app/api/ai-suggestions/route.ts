@@ -1,6 +1,7 @@
 import { google } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import { z } from 'zod'
+import { withRetry } from '@/lib/utils'
 
 export const runtime = 'nodejs'
 
@@ -41,10 +42,12 @@ export async function POST(req: Request) {
         const currentItemsText = currentItems?.map((item: any) => `- ${item.name} (${item.type})`).join('\n') || 'None'
         const replacingText = replacingItem ? `\n\nREPLACING: ${replacingItem.name} (${replacingItem.type}) - ${replacingItem.description}` : ''
 
-        const { object } = await generateObject({
-            model: google('gemini-2.0-flash'),
-            schema: SuggestionSchema,
-            prompt: `
+        const { object } = await withRetry(
+            async () => {
+                return await generateObject({
+                    model: google('gemini-2.0-flash'),
+                    schema: SuggestionSchema,
+                    prompt: `
         Generate 3-5 alternative place suggestions for Day ${day} of an itinerary in ${destination}.
         
         TIME SLOT: ${timeSlot || 'Any time'}
@@ -80,7 +83,14 @@ export async function POST(req: Request) {
         - Popular areas and neighborhoods
         - Indian context and pricing
       `,
-        })
+                })
+            },
+            {
+                maxRetries: 3,
+                baseDelay: 1000,
+                maxDelay: 8000
+            }
+        )
 
         return Response.json({ success: true, data: object })
     } catch (error) {
